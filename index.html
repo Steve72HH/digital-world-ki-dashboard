@@ -1,0 +1,475 @@
+<!doctype html>
+<html lang="de">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Digital World KI Dashboard</title>
+    <link rel="stylesheet" href="./styles.css" />
+  </head>
+  <body>
+    <svg class="sprite" aria-hidden="true">
+      <symbol id="icon-sparkles" viewBox="0 0 24 24">
+        <path d="M12 2l1.3 5.2L18 9l-4.7 1.8L12 16l-1.3-5.2L6 9l4.7-1.8L12 2z" />
+        <path d="M5 14l.8 2.6L8 17.5l-2.2.9L5 21l-.8-2.6-2.2-.9 2.2-.9L5 14z" />
+        <path d="M19 13l.9 2.8 2.6.9-2.6.9L19 21l-.9-3.4-2.6-.9 2.6-.9L19 13z" />
+      </symbol>
+      <symbol id="icon-menu" viewBox="0 0 24 24">
+        <path d="M4 7h16M4 12h16M4 17h16" />
+      </symbol>
+      <symbol id="icon-plus" viewBox="0 0 24 24">
+        <path d="M12 5v14M5 12h14" />
+      </symbol>
+      <symbol id="icon-home" viewBox="0 0 24 24">
+        <path d="M4 11.5L12 5l8 6.5V20a1 1 0 0 1-1 1h-5v-6h-4v6H5a1 1 0 0 1-1-1v-8.5z" />
+      </symbol>
+      <symbol id="icon-chat" viewBox="0 0 24 24">
+        <path d="M4 5.5A2.5 2.5 0 0 1 6.5 3h11A2.5 2.5 0 0 1 20 5.5v7A2.5 2.5 0 0 1 17.5 15H11l-5 5v-5.2A2.5 2.5 0 0 1 4 12.5v-7z" />
+      </symbol>
+      <symbol id="icon-flow" viewBox="0 0 24 24">
+        <path d="M6 5h4v4H6zM14 5h4v4h-4zM6 15h4v4H6z" />
+        <path d="M10 7h4M16 9v3a3 3 0 0 1-3 3h-3" />
+      </symbol>
+      <symbol id="icon-drive" viewBox="0 0 24 24">
+        <path d="M4 8.5A2.5 2.5 0 0 1 6.5 6h4l2 2h5A2.5 2.5 0 0 1 20 10.5v6A2.5 2.5 0 0 1 17.5 19h-11A2.5 2.5 0 0 1 4 16.5v-8z" />
+      </symbol>
+      <symbol id="icon-agents" viewBox="0 0 24 24">
+        <path d="M12 3l7 4v6c0 4-3 6.8-7 8-4-1.2-7-4-7-8V7l7-4z" />
+        <path d="M9 12h6M9 16h6M9 8h6" />
+      </symbol>
+      <symbol id="icon-settings" viewBox="0 0 24 24">
+        <path d="M12 8a4 4 0 1 1 0 8 4 4 0 0 1 0-8z" />
+        <path d="M4 12h2M18 12h2M12 4v2M12 18v2M6.3 6.3l1.4 1.4M16.3 16.3l1.4 1.4M17.7 6.3l-1.4 1.4M7.7 16.3l-1.4 1.4" />
+      </symbol>
+      <symbol id="icon-send" viewBox="0 0 24 24">
+        <path d="M4 20L21 12 4 4l3 8-3 8z" />
+        <path d="M7 12h14" />
+      </symbol>
+      <symbol id="icon-mic" viewBox="0 0 24 24">
+        <path d="M12 4a3 3 0 0 0-3 3v5a3 3 0 0 0 6 0V7a3 3 0 0 0-3-3z" />
+        <path d="M5 11a7 7 0 0 0 14 0M12 18v3" />
+      </symbol>
+      <symbol id="icon-slides" viewBox="0 0 24 24">
+        <path d="M5 5h14v10H5zM12 15v4M8 19h8" />
+      </symbol>
+      <symbol id="icon-table" viewBox="0 0 24 24">
+        <path d="M5 5h14v14H5zM5 10h14M5 15h14M10 5v14M15 5v14" />
+      </symbol>
+      <symbol id="icon-doc" viewBox="0 0 24 24">
+        <path d="M7 3h7l4 4v14H7zM14 3v5h5M9 12h6M9 16h6" />
+      </symbol>
+      <symbol id="icon-code" viewBox="0 0 24 24">
+        <path d="M9 18l-6-6 6-6M15 6l6 6-6 6" />
+      </symbol>
+      <symbol id="icon-image" viewBox="0 0 24 24">
+        <path d="M5 5h14v14H5zM8 15l3-3 2 2 2-3 3 4" />
+        <path d="M8.5 8.5h.1" />
+      </symbol>
+      <symbol id="icon-video" viewBox="0 0 24 24">
+        <path d="M4 6h12v12H4zM16 10l5-3v10l-5-3" />
+      </symbol>
+      <symbol id="icon-calendar" viewBox="0 0 24 24">
+        <path d="M5 5h14v15H5zM8 3v4M16 3v4M5 10h14" />
+      </symbol>
+      <symbol id="icon-star" viewBox="0 0 24 24">
+        <path d="M12 3l2.7 5.5 6.1.9-4.4 4.3 1 6.1L12 17l-5.4 2.8 1-6.1-4.4-4.3 6.1-.9L12 3z" />
+      </symbol>
+      <symbol id="icon-check" viewBox="0 0 24 24">
+        <path d="M20 6L9 17l-5-5" />
+      </symbol>
+      <symbol id="icon-copy" viewBox="0 0 24 24">
+        <path d="M8 8h11v11H8zM5 16H4V4h12v1" />
+      </symbol>
+      <symbol id="icon-server" viewBox="0 0 24 24">
+        <path d="M5 4h14v6H5zM5 14h14v6H5z" />
+        <path d="M8 7h.1M8 17h.1M12 7h4M12 17h4" />
+      </symbol>
+    </svg>
+
+    <div class="app-shell">
+      <aside class="sidebar" aria-label="Hauptnavigation">
+        <button class="brand-mark icon-button" type="button" data-tooltip="Digital World">
+          <svg><use href="#icon-sparkles"></use></svg>
+        </button>
+        <button class="icon-button nav-toggle" id="toggleNav" type="button" data-tooltip="Navigation">
+          <svg><use href="#icon-menu"></use></svg>
+        </button>
+        <button class="icon-button new-button" id="newCommand" type="button" data-tooltip="Neuer Auftrag">
+          <svg><use href="#icon-plus"></use></svg>
+        </button>
+        <nav class="nav-list" id="mainNav"></nav>
+        <div class="sidebar-bottom">
+          <button class="icon-button" id="openSettingsMini" type="button" data-tooltip="KI-Setup">
+            <svg><use href="#icon-server"></use></svg>
+          </button>
+          <button class="icon-button" id="focusMode" type="button" data-tooltip="Fokus">
+            <svg><use href="#icon-sparkles"></use></svg>
+          </button>
+        </div>
+      </aside>
+
+      <main class="workspace">
+        <header class="topbar">
+          <div>
+            <p class="eyebrow">Self-hosted AI Workspace</p>
+            <h1>Digital World KI Dashboard</h1>
+          </div>
+          <div class="topbar-actions">
+            <div class="status-pill" id="backendStatus">
+              <span class="status-dot"></span>
+              <span>Backend wird geprüft</span>
+            </div>
+            <button class="ghost-button" id="openSettings" type="button">
+              <svg><use href="#icon-settings"></use></svg>
+              KI-Setup
+            </button>
+          </div>
+        </header>
+
+        <section class="command-center" aria-label="KI Auftrag">
+          <div class="command-top">
+            <div class="mode-tabs" id="modeTabs"></div>
+            <div class="command-actions">
+              <button class="icon-button" id="copyPrompt" type="button" data-tooltip="Prompt kopieren">
+                <svg><use href="#icon-copy"></use></svg>
+              </button>
+              <button class="icon-button" id="voiceButton" type="button" data-tooltip="Sprache">
+                <svg><use href="#icon-mic"></use></svg>
+              </button>
+            </div>
+          </div>
+          <textarea id="commandInput" rows="4" placeholder="Frag alles. Erstelle alles. Automatisiere alles."></textarea>
+          <div class="command-footer">
+            <div class="tool-chip" id="activeToolChip">
+              <svg><use href="#icon-sparkles"></use></svg>
+              <span>Standard</span>
+            </div>
+            <div class="command-footer-actions">
+              <button class="subtle-button" id="savePrompt" type="button">Als Vorlage</button>
+              <button class="primary-button" id="runCommand" type="button">
+                <svg><use href="#icon-send"></use></svg>
+                Ausführen
+              </button>
+            </div>
+          </div>
+        </section>
+
+        <section class="tool-strip" id="toolStrip" aria-label="Werkzeuggruppen"></section>
+
+        <section class="metrics-row" id="metricsRow" aria-label="Kennzahlen"></section>
+
+        <section class="dashboard-grid" id="dashboardGrid">
+          <article class="panel panel-wide" id="runsPanel">
+            <div class="panel-heading">
+              <div>
+                <p class="panel-kicker">Live Queue</p>
+                <h2>Aufträge</h2>
+              </div>
+              <button class="subtle-button" id="clearRuns" type="button">Bereinigen</button>
+            </div>
+            <div class="run-list" id="runList"></div>
+          </article>
+
+          <article class="panel">
+            <div class="panel-heading">
+              <div>
+                <p class="panel-kicker">Team</p>
+                <h2>KI-Mitarbeiter</h2>
+              </div>
+              <button class="subtle-button" id="activateAllAgents" type="button">Aktivieren</button>
+            </div>
+            <div class="agent-list" id="agentList"></div>
+          </article>
+
+          <article class="panel" id="agentStudioPanel">
+            <div class="panel-heading">
+              <div>
+                <p class="panel-kicker">Agent Studio</p>
+                <h2>Rollen & Provider</h2>
+              </div>
+              <button class="subtle-button" id="saveAgentProfile" type="button">Speichern</button>
+            </div>
+            <div class="agent-studio">
+              <label>
+                Agent
+                <select id="agentSelect"></select>
+              </label>
+              <div class="agent-brief" id="agentBrief"></div>
+              <label>
+                Provider
+                <select id="agentProviderId"></select>
+              </label>
+              <label>
+                Modell
+                <input id="agentModel" type="text" placeholder="Standardmodell des Providers" />
+              </label>
+              <label>
+                Systembriefing
+                <textarea id="agentInstructions" rows="5" placeholder="Wie soll dieser Agent arbeiten?"></textarea>
+              </label>
+              <label>
+                Auftrag testen
+                <textarea id="agentPrompt" rows="3" placeholder="Gib diesem Agenten eine konkrete Aufgabe."></textarea>
+              </label>
+              <div class="agent-actions">
+                <button class="primary-button" id="runAgent" type="button">
+                  <svg><use href="#icon-send"></use></svg>
+                  Agent starten
+                </button>
+              </div>
+            </div>
+          </article>
+
+          <article class="panel">
+            <div class="panel-heading">
+              <div>
+                <p class="panel-kicker">Automationen</p>
+                <h2>Workflows</h2>
+              </div>
+              <button class="subtle-button" id="newWorkflow" type="button">Neu</button>
+            </div>
+            <div class="workflow-list" id="workflowList"></div>
+          </article>
+
+          <article class="panel panel-wide" id="workflowRunnerPanel">
+            <div class="panel-heading">
+              <div>
+                <p class="panel-kicker">Workflow Runner</p>
+                <h2>Webhook & Testlauf</h2>
+              </div>
+              <button class="subtle-button" id="saveWorkflowProfile" type="button">Speichern</button>
+            </div>
+            <div class="workflow-runner">
+              <label>
+                Workflow
+                <select id="workflowSelect"></select>
+              </label>
+              <div class="workflow-brief" id="workflowBrief"></div>
+              <div class="form-grid-two">
+                <label>
+                  Trigger
+                  <input id="workflowTrigger" type="text" placeholder="Manuell, neuer Lead, Zeitplan ..." />
+                </label>
+                <label>
+                  Owner
+                  <input id="workflowOwner" type="text" placeholder="Research Scout, Content Pilot ..." />
+                </label>
+              </div>
+              <label>
+                Webhook URL
+                <input id="workflowWebhookUrl" type="url" placeholder="https://hook.eu1.make.com/... oder http://localhost:5678/webhook/..." />
+              </label>
+              <label>
+                Testpayload
+                <textarea id="workflowPayload" rows="4" placeholder="Was soll dieser Workflow jetzt verarbeiten?"></textarea>
+              </label>
+              <div class="workflow-runner-actions">
+                <button class="primary-button" id="runWorkflow" type="button">
+                  <svg><use href="#icon-send"></use></svg>
+                  Workflow starten
+                </button>
+              </div>
+            </div>
+          </article>
+
+          <article class="panel">
+            <div class="panel-heading">
+              <div>
+                <p class="panel-kicker">Bibliothek</p>
+                <h2>Prompt Vault</h2>
+              </div>
+              <button class="subtle-button" id="seedPrompts" type="button">Beispiele</button>
+            </div>
+            <div class="prompt-list" id="promptList"></div>
+          </article>
+
+          <article class="panel panel-wide">
+            <div class="panel-heading">
+              <div>
+                <p class="panel-kicker">System</p>
+                <h2>Aktivität</h2>
+              </div>
+              <div class="mini-chart" aria-hidden="true">
+                <span style="height: 42%"></span>
+                <span style="height: 68%"></span>
+                <span style="height: 51%"></span>
+                <span style="height: 83%"></span>
+                <span style="height: 61%"></span>
+                <span style="height: 74%"></span>
+              </div>
+            </div>
+            <div class="activity-list" id="activityList"></div>
+          </article>
+
+          <article class="panel" id="testPanel">
+            <div class="panel-heading">
+              <div>
+                <p class="panel-kicker">QA</p>
+                <h2>Test Center</h2>
+              </div>
+              <button class="subtle-button" id="testApi" type="button">API prüfen</button>
+            </div>
+            <div class="test-actions">
+              <button class="subtle-button" id="runDemoCommand" type="button">Demo-Auftrag</button>
+              <button class="subtle-button" id="exportData" type="button">Export</button>
+              <button class="subtle-button" id="loadDemoData" type="button">Testdaten</button>
+            </div>
+            <pre class="test-log" id="testLog">Bereit fuer Tests.</pre>
+          </article>
+        </section>
+      </main>
+
+      <div class="drawer-backdrop" id="drawerBackdrop"></div>
+      <aside class="settings-drawer" id="settingsDrawer" aria-label="KI-Setup">
+        <div class="drawer-header">
+          <div>
+            <p class="panel-kicker">Provider & Keys</p>
+            <h2>KI-Setup</h2>
+          </div>
+          <button class="icon-button" id="closeSettings" type="button" data-tooltip="Schließen">
+            <svg><use href="#icon-plus"></use></svg>
+          </button>
+        </div>
+
+        <form class="settings-form" id="settingsForm">
+          <label>
+            Anbieter
+            <select id="providerMode">
+              <option value="backend">Dashboard Backend</option>
+              <option value="mock">Lokaler Demo-Modus</option>
+            </select>
+          </label>
+          <label>
+            Standard-Provider
+            <select id="defaultProviderId"></select>
+          </label>
+          <label>
+            Backend URL
+            <input id="backendUrl" type="url" placeholder="http://localhost:8787" />
+          </label>
+          <label>
+            Standardmodell
+            <input id="modelName" type="text" placeholder="gpt-4.1-mini, llama3.1, ..." />
+          </label>
+          <label>
+            Team-Workspace
+            <input id="workspaceName" type="text" placeholder="Digital World" />
+          </label>
+          <div class="settings-actions">
+            <button class="primary-button" type="submit">
+              <svg><use href="#icon-check"></use></svg>
+              Speichern
+            </button>
+            <button class="subtle-button" id="testBackend" type="button">Testen</button>
+          </div>
+        </form>
+
+        <section class="backend-card setup-card">
+          <div class="setup-card-head">
+            <div>
+              <p class="panel-kicker">KI-Abos</p>
+              <h3>Provider verbinden</h3>
+            </div>
+            <span id="providerCount">0 aktiv</span>
+          </div>
+          <div class="provider-list" id="aiProviderList"></div>
+        </section>
+
+        <section class="backend-card setup-card">
+          <div class="setup-card-head">
+            <div>
+              <p class="panel-kicker">Routing</p>
+              <h3>Werkzeuge zuordnen</h3>
+            </div>
+            <button class="subtle-button" id="autoRouteProviders" type="button">Auto zuordnen</button>
+          </div>
+          <div class="routing-list" id="providerRoutingList"></div>
+          <p class="setup-hint">Leere Auswahl bedeutet: Dieses Werkzeug nutzt den Standard-Provider.</p>
+        </section>
+
+        <form class="settings-form provider-form" id="providerForm">
+          <div class="setup-card-head">
+            <div>
+              <p class="panel-kicker" id="setupProviderCategory">Provider</p>
+              <h3 id="setupProviderName">Provider auswählen</h3>
+            </div>
+            <span id="setupProviderStatus">nicht aktiv</span>
+          </div>
+          <label class="check-label">
+            <input id="setupProviderEnabled" type="checkbox" />
+            <span>Provider aktivieren</span>
+          </label>
+          <label>
+            Base URL
+            <input id="setupProviderBaseUrl" type="url" placeholder="https://api.example.com/v1" />
+          </label>
+          <label>
+            Modell / Deployment
+            <input id="setupProviderModel" type="text" placeholder="gpt-4.1-mini, llama3.2:1b, ..." />
+          </label>
+          <label>
+            API-Key
+            <input id="setupProviderApiKey" type="password" placeholder="Neuen Key eingeben oder leer lassen" autocomplete="off" />
+          </label>
+          <p class="setup-hint" id="setupProviderHint">Keys werden nur serverseitig gespeichert und in der Oberfläche maskiert.</p>
+          <div class="settings-actions">
+            <button class="primary-button" type="submit">
+              <svg><use href="#icon-check"></use></svg>
+              Provider speichern
+            </button>
+            <button class="subtle-button" id="testProvider" type="button">Verbindung testen</button>
+            <button class="subtle-button" id="clearProviderKey" type="button">Key löschen</button>
+          </div>
+        </form>
+
+        <div class="backend-card">
+          <p class="panel-kicker">API Bridge</p>
+          <code>POST /api/chat</code>
+          <span>Ollama, OpenAI-kompatible Endpunkte, Claude, Gemini und Azure OpenAI werden serverseitig geroutet.</span>
+        </div>
+
+        <div class="backend-card">
+          <p class="panel-kicker">Daten</p>
+          <code>data/dashboard.json</code>
+          <span>Prompts, Workflows, Agents und Runs werden im Backend als JSON-Datei gespeichert.</span>
+          <div class="settings-actions">
+            <button class="subtle-button" id="drawerExportData" type="button">Export</button>
+            <button class="subtle-button" id="drawerImportData" type="button">Import</button>
+          </div>
+          <input id="importFile" type="file" accept="application/json" hidden />
+        </div>
+      </aside>
+
+      <div class="result-backdrop" id="resultBackdrop"></div>
+      <aside class="result-drawer" id="resultDrawer" aria-label="Auftragsergebnis">
+        <div class="drawer-header">
+          <div>
+            <p class="panel-kicker">Ergebnis</p>
+            <h2 id="resultTitle">Auftrag</h2>
+          </div>
+          <button class="icon-button" id="closeResult" type="button" data-tooltip="Schließen">
+            <svg><use href="#icon-plus"></use></svg>
+          </button>
+        </div>
+        <div class="result-meta" id="resultMeta"></div>
+        <section class="result-block">
+          <p class="panel-kicker">Prompt</p>
+          <p id="resultPrompt"></p>
+        </section>
+        <section class="result-block">
+          <div class="result-block-head">
+            <p class="panel-kicker">Antwort</p>
+            <button class="subtle-button" id="copyResult" type="button">
+              <svg><use href="#icon-copy"></use></svg>
+              Kopieren
+            </button>
+          </div>
+          <pre id="resultOutput"></pre>
+        </section>
+      </aside>
+
+      <div class="toast-region" id="toastRegion" aria-live="polite"></div>
+    </div>
+
+    <script src="./app.js"></script>
+  </body>
+</html>

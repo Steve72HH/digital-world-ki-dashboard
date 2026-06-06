@@ -1,0 +1,225 @@
+{
+  "version": 2,
+  "settings": {
+    "workspaceName": "Digital World",
+    "defaultModel": "gpt-4.1-mini",
+    "defaultProviderId": "mock",
+    "providerRouting": {},
+    "providerMode": "backend",
+    "monthlyPlatformAlternativeEur": 600
+  },
+  "agents": [
+    {
+      "id": "automations",
+      "name": "Claw Automations",
+      "role": "Make, n8n, Webhooks",
+      "initials": "CA",
+      "color": "#ff6a4b",
+      "active": true,
+      "tools": ["webhook", "scheduler", "http"],
+      "providerId": "",
+      "model": "",
+      "instructions": "Plane robuste Automationen mit klaren Triggern, Datenquellen, Fehlerpfaden, Logging und einem kleinen MVP-Schritt."
+    },
+    {
+      "id": "research",
+      "name": "Research Scout",
+      "role": "Markt, Quellen, Vergleiche",
+      "initials": "RS",
+      "color": "#18d4c5",
+      "active": true,
+      "tools": ["browser", "summarizer", "source-check"],
+      "providerId": "",
+      "model": "",
+      "instructions": "Recherchiere strukturiert, trenne Fakten von Annahmen und liefere Vergleiche, Risiken, Chancen und naechste Pruefschritte."
+    },
+    {
+      "id": "content",
+      "name": "Content Pilot",
+      "role": "Posts, Newsletter, Skripte",
+      "initials": "CP",
+      "color": "#f6b84d",
+      "active": false,
+      "tools": ["editor", "calendar", "asset-plan"],
+      "providerId": "",
+      "model": "",
+      "instructions": "Erstelle klare Content-Entwuerfe mit Hook, Zielgruppe, Format, Kanal, CTA und Produktionsschritten."
+    },
+    {
+      "id": "code",
+      "name": "Code Operator",
+      "role": "Reviews, Fixes, Deployments",
+      "initials": "CO",
+      "color": "#8f7aff",
+      "active": false,
+      "tools": ["repo", "tests", "deploy"],
+      "providerId": "",
+      "model": "",
+      "instructions": "Arbeite wie ein senioriger Code-Operator: Ziel, Risiko, kleine Schritte, Tests und Rollback-Punkte."
+    }
+  ],
+  "workflows": [
+    {
+      "id": "lead-research",
+      "title": "Lead-Recherche",
+      "subtitle": "Firma finden, ICP pruefen, Outreach skizzieren",
+      "active": true,
+      "steps": ["Quelle", "Analyse", "CRM"],
+      "trigger": "Manuell oder neuer CRM-Lead",
+      "owner": "Research Scout",
+      "webhookUrl": "",
+      "lastRunAt": null,
+      "lastStatus": "",
+      "lastResponse": ""
+    },
+    {
+      "id": "content-repurpose",
+      "title": "Content Repurpose",
+      "subtitle": "Video in Blog, Newsletter und LinkedIn zerlegen",
+      "active": true,
+      "steps": ["Transkript", "Assets", "Plan"],
+      "trigger": "Neuer Video-Link",
+      "owner": "Content Pilot",
+      "webhookUrl": "",
+      "lastRunAt": null,
+      "lastStatus": "",
+      "lastResponse": ""
+    },
+    {
+      "id": "support-triage",
+      "title": "Support Triage",
+      "subtitle": "Mails clustern, priorisieren und Antwort vorschlagen",
+      "active": false,
+      "steps": ["Inbox", "Tags", "Antwort"],
+      "trigger": "Neue Support-Mail",
+      "owner": "Claw Automations",
+      "webhookUrl": "",
+      "lastRunAt": null,
+      "lastStatus": "",
+      "lastResponse": ""
+    }
+  ],
+  "prompts": [
+    {
+      "id": "p1",
+      "title": "Automation Blueprint",
+      "text": "Erstelle fuer diesen Prozess einen Automationsplan mit Trigger, Datenquellen, Fehlerfaellen, Tools und erstem MVP.",
+      "tags": ["automation", "mvp"],
+      "createdAt": "2026-06-05T00:00:00.000Z"
+    },
+    {
+      "id": "p2",
+      "title": "Executive Briefing",
+      "text": "Fasse dieses Thema fuer eine Geschaeftsentscheidung zusammen: Kontext, Optionen, Risiko, Empfehlung, naechste Schritte.",
+      "tags": ["strategy", "briefing"],
+      "createdAt": "2026-06-05T00:00:00.000Z"
+    },
+    {
+      "id": "p3",
+      "title": "Content Engine",
+      "text": "Baue aus dieser Idee eine Content-Serie mit Positionierung, Hook-Varianten, Formaten und Produktionsworkflow.",
+      "tags": ["content", "workflow"],
+      "createdAt": "2026-06-05T00:00:00.000Z"
+    }
+  ],
+  "runs": [],
+  "activity": [
+    {
+      "id": "a1",
+      "title": "Workspace initialisiert",
+      "detail": "Digital World Dashboard Example",
+      "color": "#18d4c5",
+      "time": "jetzt",
+      "createdAt": "2026-06-05T00:00:00.000Z"
+    }
+  ],
+  "aiProviders": [
+    {
+      "id": "mock",
+      "name": "Demo Mock",
+      "company": "Local",
+      "adapter": "mock",
+      "category": "Demo",
+      "defaultBaseUrl": "",
+      "defaultModel": "gpt-4.1-mini",
+      "keyRequired": false,
+      "description": "Sofort nutzbarer Demo-Modus ohne externe KI-Kosten.",
+      "baseUrl": "",
+      "model": "gpt-4.1-mini",
+      "enabled": true,
+      "updatedAt": null,
+      "apiKey": ""
+    },
+    {
+      "id": "ollama",
+      "name": "Ollama lokal",
+      "company": "Local",
+      "adapter": "ollama",
+      "category": "Lokal",
+      "defaultBaseUrl": "http://localhost:11434",
+      "defaultModel": "llama3.2:1b",
+      "keyRequired": false,
+      "description": "Lokale Modelle auf deinem Server oder PC.",
+      "baseUrl": "http://localhost:11434",
+      "model": "llama3.2:1b",
+      "enabled": false,
+      "updatedAt": null,
+      "apiKey": ""
+    },
+    {
+      "id": "openai",
+      "name": "ChatGPT / OpenAI",
+      "company": "OpenAI",
+      "adapter": "openai-compatible",
+      "category": "Allround",
+      "defaultBaseUrl": "https://api.openai.com/v1",
+      "defaultModel": "gpt-4.1-mini",
+      "keyRequired": true,
+      "description": "Allround-Modelle fuer Chat, Analyse, Content und Tool-Aufrufe.",
+      "baseUrl": "https://api.openai.com/v1",
+      "model": "gpt-4.1-mini",
+      "enabled": false,
+      "updatedAt": null,
+      "apiKey": ""
+    },
+    {
+      "id": "custom",
+      "name": "Eigener Provider",
+      "company": "Custom",
+      "adapter": "openai-compatible",
+      "category": "Custom",
+      "defaultBaseUrl": "https://example.com/v1",
+      "defaultModel": "model-name",
+      "keyRequired": false,
+      "description": "Fallback fuer jeden OpenAI-kompatiblen Anbieter.",
+      "baseUrl": "https://example.com/v1",
+      "model": "model-name",
+      "enabled": false,
+      "updatedAt": null,
+      "apiKey": ""
+    }
+  ],
+  "connectors": [
+    {
+      "id": "ollama",
+      "name": "Ollama lokal",
+      "type": "llm",
+      "status": "optional",
+      "description": "Lokaler LLM-Endpunkt fuer private Tests."
+    },
+    {
+      "id": "openai-compatible",
+      "name": "OpenAI-kompatibel",
+      "type": "llm",
+      "status": "optional",
+      "description": "Serverseitige API-Bridge fuer gehostete Modelle."
+    },
+    {
+      "id": "webhook",
+      "name": "Webhook Runner",
+      "type": "automation",
+      "status": "ready",
+      "description": "Startet n8n, Make oder eigene Worker per JSON-Webhook."
+    }
+  ]
+}

@@ -1,0 +1,17 @@
+{
+  "name": "digital-world-ki-dashboard",
+  "version": "0.2.0",
+  "private": false,
+  "description": "Self-hosted AI dashboard for automations, agents, workflows and prompt operations.",
+  "license": "MIT",
+  "scripts": {
+    "start": "node server.js",
+    "dev": "node server.js",
+    "check": "node test/check-syntax.js",
+    "test": "node --test test/api.test.js",
+    "smoke": "node test/smoke.js"
+  },
+  "engines": {
+    "node": ">=20"
+  }
+}

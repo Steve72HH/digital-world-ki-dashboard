@@ -1,0 +1,16 @@
+services:
+  digital-world-ki-dashboard:
+    build: .
+    container_name: digital-world-ki-dashboard
+    ports:
+      - "8787:8787"
+    environment:
+      PORT: "8787"
+      DATA_DIR: "/app/data"
+      AI_PROVIDER: "mock"
+      AI_MODEL: "gpt-4.1-mini"
+      AI_BASE_URL: "https://api.openai.com/v1"
+      AI_API_KEY: ""
+    volumes:
+      - ./data:/app/data
+    restart: unless-stopped
