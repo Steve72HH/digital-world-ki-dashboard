@@ -29,11 +29,11 @@ Viele KI-Dashboards sind im Kern nur ein Buendel aus Chat, Prompt-Bibliothek, Ag
 
 ## Screenshots
 
-Screenshots koennen in `docs/assets/` abgelegt werden:
+![Dashboard Desktop](https://raw.githubusercontent.com/Steve72HH/digital-world-ki-dashboard/main/docs/assets/dashboard-desktop.png)
 
-- `docs/assets/dashboard-desktop.png`
-- `docs/assets/workflow-runner.png`
-- `docs/assets/social-preview.png`
+![Workflow Runner](https://raw.githubusercontent.com/Steve72HH/digital-world-ki-dashboard/main/docs/assets/workflow-runner.png)
+
+![Social Preview](https://raw.githubusercontent.com/Steve72HH/digital-world-ki-dashboard/main/docs/assets/social-preview.png)
 
 ## Schnellstart
 
