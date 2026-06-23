@@ -53,6 +53,26 @@ async function withWebhookReceiver(run) {
   }
 }
 
+async function withOllamaServer(models, run) {
+  const server = http.createServer((req, res) => {
+    if (req.method === "GET" && req.url === "/api/tags") {
+      res.writeHead(200, { "Content-Type": "application/json" });
+      res.end(JSON.stringify({ models: models.map((name) => ({ name })) }));
+      return;
+    }
+    res.writeHead(404, { "Content-Type": "application/json" });
+    res.end(JSON.stringify({ error: "not found" }));
+  });
+  await new Promise((resolve) => server.listen(0, "127.0.0.1", resolve));
+  const address = server.address();
+  const baseUrl = `http://127.0.0.1:${address.port}`;
+  try {
+    await run({ baseUrl });
+  } finally {
+    await new Promise((resolve, reject) => server.close((error) => (error ? reject(error) : resolve())));
+  }
+}
+
 test("health endpoint exposes provider, model and storage", async () => {
   await withTestServer(async ({ baseUrl }) => {
     const response = await fetch(`${baseUrl}/api/health`);
@@ -246,6 +266,48 @@ test("AI provider setup stores keys server-side and redacts public payloads", as
     const health = await (await fetch(`${baseUrl}/api/health`)).json();
     assert.equal(health.provider, "ChatGPT / OpenAI");
     assert.equal(health.model, "gpt-test");
+  });
+});
+
+test("Ollama discovery returns reachable endpoint and recommended model", async () => {
+  await withTestServer(async ({ baseUrl }) => {
+    await withOllamaServer(["llama3.2:1b", "llama3.2:3b"], async ({ baseUrl: ollamaUrl }) => {
+      const response = await fetch(`${baseUrl}/api/ai-providers/ollama/discover`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          baseUrl: ollamaUrl,
+          model: "missing-model",
+        }),
+      });
+      assert.equal(response.status, 200);
+      const result = await response.json();
+      assert.equal(result.ok, true);
+      assert.equal(result.baseUrl, ollamaUrl);
+      assert.deepEqual(result.models, ["llama3.2:1b", "llama3.2:3b"]);
+      assert.equal(result.recommendedModel, "llama3.2:3b");
+    });
+  });
+});
+
+test("Ollama discovery skips reachable endpoints without models", async () => {
+  await withTestServer(async ({ baseUrl }) => {
+    await withOllamaServer([], async ({ baseUrl: emptyOllamaUrl }) => {
+      await withOllamaServer(["qwen3.6:latest", "llama3.2:3b"], async ({ baseUrl: modelOllamaUrl }) => {
+        const response = await fetch(`${baseUrl}/api/ai-providers/ollama/discover`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            baseUrl: emptyOllamaUrl,
+            baseUrls: [modelOllamaUrl],
+          }),
+        });
+        assert.equal(response.status, 200);
+        const result = await response.json();
+        assert.equal(result.baseUrl, modelOllamaUrl);
+        assert.deepEqual(result.models, ["qwen3.6:latest", "llama3.2:3b"]);
+      });
+    });
   });
 });
 

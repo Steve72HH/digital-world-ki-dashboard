@@ -46,6 +46,13 @@ function createAiClient(config) {
         reply: mockReply(prompt, body),
       };
     },
+    async discoverProvider(providerConfig, options = {}) {
+      const runtime = normalizeRuntimeConfig(providerConfig || config);
+      if (runtime.provider !== "ollama") {
+        throw createHttpError(400, "Auto discovery is available for Ollama only");
+      }
+      return discoverOllama(runtime, options);
+    },
   };
 }
 
@@ -266,6 +273,101 @@ async function callOllama({ prompt, body, model, config }) {
   };
 }
 
+async function discoverOllama(config, options = {}) {
+  const candidates = uniqueValues([
+    options.baseUrl,
+    config.baseUrl,
+    ...(Array.isArray(options.baseUrls) ? options.baseUrls : []),
+    "http://127.0.0.1:11434",
+    "http://localhost:11434",
+  ]).filter(Boolean);
+  const errors = [];
+  let reachableWithoutModels = null;
+
+  for (const candidate of candidates) {
+    const result = await readOllamaTags(candidate, options.timeoutMs || 1400);
+    if (result.ok) {
+      if (!result.models.length) {
+        reachableWithoutModels = reachableWithoutModels || result;
+        errors.push(`${candidate}: no models`);
+        continue;
+      }
+      const recommendedModel = pickOllamaModel(result.models, options.model || config.model);
+      return {
+        ok: true,
+        provider: config.providerLabel || "Ollama",
+        baseUrl: result.baseUrl,
+        models: result.models,
+        recommendedModel,
+        model: recommendedModel,
+        checked: candidates.length,
+        message: `${result.models.length} model(s) found`,
+      };
+    }
+    errors.push(`${candidate}: ${result.message}`);
+  }
+
+  if (reachableWithoutModels) {
+    return {
+      ok: true,
+      provider: config.providerLabel || "Ollama",
+      baseUrl: reachableWithoutModels.baseUrl,
+      models: [],
+      recommendedModel: clean(options.model || config.model) || "llama3.2:1b",
+      model: clean(options.model || config.model) || "llama3.2:1b",
+      checked: candidates.length,
+      message: "Ollama reachable, but no models found",
+      warning: errors.join(" | "),
+    };
+  }
+
+  return {
+    ok: false,
+    provider: config.providerLabel || "Ollama",
+    baseUrl: config.baseUrl,
+    models: [],
+    recommendedModel: config.model,
+    checked: candidates.length,
+    error: errors.join(" | ") || "Ollama is not reachable",
+  };
+}
+
+async function readOllamaTags(baseUrl, timeoutMs) {
+  const normalizedBaseUrl = trimSlash(baseUrl);
+  try {
+    const response = await fetch(`${normalizedBaseUrl}/api/tags`, {
+      headers: { Accept: "application/json" },
+      signal: AbortSignal.timeout(timeoutMs),
+    });
+    if (!response.ok) {
+      return { ok: false, message: `HTTP ${response.status}` };
+    }
+    const data = await response.json();
+    const models = Array.isArray(data.models)
+      ? data.models.map((model) => clean(model.name || model.model)).filter(Boolean)
+      : [];
+    return { ok: true, baseUrl: normalizedBaseUrl, models };
+  } catch (error) {
+    const message = error.name === "TimeoutError" ? "timeout" : error.message || "not reachable";
+    return { ok: false, message };
+  }
+}
+
+function pickOllamaModel(models, currentModel) {
+  const available = uniqueValues(models.map(clean).filter(Boolean));
+  const current = clean(currentModel);
+  if (current && available.includes(current)) return current;
+  const preferred = [
+    "llama3.2:3b",
+    "llama3.2:1b",
+    "qwen2.5:3b",
+    "qwen2.5:1.5b",
+    "llama3.1:8b",
+    "llama3.1",
+  ];
+  return preferred.find((model) => available.includes(model)) || available[0] || current || "llama3.2:1b";
+}
+
 function buildUserMessage(prompt, body) {
   const tool = body.tool?.label || body.tool?.id || "Standard";
   const mode = body.mode || "auto";
@@ -407,6 +509,14 @@ function mockReply(prompt, body) {
 
 function trimSlash(value) {
   return String(value).replace(/\/$/, "");
+}
+
+function uniqueValues(values) {
+  return Array.from(new Set(values.map(clean).filter(Boolean)));
+}
+
+function clean(value) {
+  return String(value ?? "").trim();
 }
 
 function redactBaseUrl(value) {

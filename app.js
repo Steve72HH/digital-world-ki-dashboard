@@ -878,6 +878,13 @@ function renderProviderEditor() {
   $("#setupProviderHint").textContent = provider.keyRequired
     ? "Dieser Anbieter braucht einen eigenen API-Key. Der Key wird serverseitig gespeichert und in Exporten maskiert."
     : "Dieser Anbieter kann ohne Key laufen, wenn dein lokaler Server keine Authentifizierung verlangt.";
+  const discoveryPanel = $("#providerDiscoveryPanel");
+  const isOllama = provider.id === "ollama" || provider.adapter === "ollama";
+  discoveryPanel.hidden = !isOllama;
+  if (isOllama) {
+    $("#providerDiscoveryStatus").textContent =
+      "Prueft die eingetragene URL plus 127.0.0.1 und localhost.";
+  }
 }
 
 function updateActiveToolChip() {
@@ -1722,6 +1729,43 @@ async function testAiProvider() {
   }
 }
 
+async function discoverOllamaProvider() {
+  const provider = getSelectedSetupProvider();
+  if (!provider) return;
+  const status = $("#providerDiscoveryStatus");
+  status.textContent = "Suche erreichbaren Ollama-Server...";
+  try {
+    const result = await apiRequest(`/api/ai-providers/${encodeURIComponent(provider.id)}/discover`, {
+      method: "POST",
+      body: JSON.stringify({
+        baseUrl: $("#setupProviderBaseUrl").value.trim(),
+        model: $("#setupProviderModel").value.trim(),
+      }),
+    });
+    const model = result.recommendedModel || result.models?.[0] || $("#setupProviderModel").value.trim();
+    $("#setupProviderBaseUrl").value = result.baseUrl;
+    $("#setupProviderModel").value = model;
+    $("#setupProviderEnabled").checked = true;
+    status.textContent = result.models?.length
+      ? `${result.models.length} Modelle gefunden: ${result.models.slice(0, 3).join(", ")}`
+      : "Ollama erreicht, aber keine Modelle gemeldet.";
+    const updated = await apiRequest(`/api/ai-providers/${encodeURIComponent(provider.id)}`, {
+      method: "PATCH",
+      body: JSON.stringify({
+        enabled: true,
+        baseUrl: result.baseUrl,
+        model,
+        defaultProvider: true,
+      }),
+    });
+    await hydrateFromBackend();
+    toast(`${updated.name} verbunden: ${model}`);
+  } catch (error) {
+    status.textContent = error.message;
+    toast(`Ollama nicht gefunden: ${error.message}`);
+  }
+}
+
 async function clearAiProviderKey() {
   const provider = getSelectedSetupProvider();
   if (!provider) return;
@@ -2129,6 +2173,7 @@ function bindEvents() {
   });
   $("#testBackend").addEventListener("click", testBackend);
   $("#testProvider").addEventListener("click", testAiProvider);
+  $("#discoverOllama").addEventListener("click", discoverOllamaProvider);
   $("#clearProviderKey").addEventListener("click", clearAiProviderKey);
   document.addEventListener("change", (event) => {
     const routeSelect = event.target.closest("[data-route-tool]");

@@ -109,6 +109,26 @@ async function handleApi({ req, res, url, store, ai, config }) {
     return;
   }
 
+  if (parts[1] === "ai-providers" && parts[2] && parts[3] === "discover" && method === "POST") {
+    const body = await readJson(req);
+    const providerConfig = await store.getEffectiveAiConfig(config.ai, parts[2]);
+    const result = await ai.discoverProvider(
+      {
+        ...providerConfig,
+        baseUrl: clean(body.baseUrl) || providerConfig.baseUrl,
+        model: clean(body.model) || providerConfig.model,
+      },
+      {
+        baseUrl: clean(body.baseUrl),
+        model: clean(body.model),
+        baseUrls: Array.isArray(body.baseUrls) ? body.baseUrls.map(clean) : [],
+        timeoutMs: Number(body.timeoutMs || 1400),
+      },
+    );
+    sendJson(res, result.ok ? 200 : 503, result);
+    return;
+  }
+
   if (parts[1] === "ai-providers" && parts[2] && method === "PATCH") {
     sendJson(res, 200, await store.saveAiProvider(parts[2], await readJson(req)));
     return;

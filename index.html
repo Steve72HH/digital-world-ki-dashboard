@@ -411,6 +411,13 @@
             <input id="setupProviderApiKey" type="password" placeholder="Neuen Key eingeben oder leer lassen" autocomplete="off" />
           </label>
           <p class="setup-hint" id="setupProviderHint">Keys werden nur serverseitig gespeichert und in der Oberfläche maskiert.</p>
+          <div class="provider-discovery" id="providerDiscoveryPanel" hidden>
+            <div>
+              <strong>Ollama Auto-Setup</strong>
+              <span id="providerDiscoveryStatus">Lokalen Ollama-Server und Modelle erkennen.</span>
+            </div>
+            <button class="subtle-button" id="discoverOllama" type="button">Ollama suchen</button>
+          </div>
           <div class="settings-actions">
             <button class="primary-button" type="submit">
               <svg><use href="#icon-check"></use></svg>

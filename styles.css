@@ -1313,6 +1313,38 @@ svg {
   line-height: 1.45;
 }
 
+.provider-discovery {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 12px;
+  border: 1px solid rgba(24, 212, 197, 0.2);
+  border-radius: var(--radius);
+  background: rgba(24, 212, 197, 0.055);
+}
+
+.provider-discovery[hidden] {
+  display: none;
+}
+
+.provider-discovery div {
+  display: grid;
+  min-width: 0;
+  gap: 4px;
+}
+
+.provider-discovery strong {
+  color: var(--text);
+  font-size: 13px;
+}
+
+.provider-discovery span {
+  color: var(--muted);
+  font-size: 12px;
+  line-height: 1.35;
+}
+
 .settings-actions {
   display: flex;
   flex-wrap: wrap;
