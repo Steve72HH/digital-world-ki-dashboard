@@ -200,6 +200,8 @@ const workflowSeeds = [
     lastRunAt: null,
     lastStatus: "",
     lastResponse: "",
+    responseLog: [],
+    errorLog: [],
   },
   {
     id: "content-repurpose",
@@ -213,6 +215,8 @@ const workflowSeeds = [
     lastRunAt: null,
     lastStatus: "",
     lastResponse: "",
+    responseLog: [],
+    errorLog: [],
   },
   {
     id: "support-triage",
@@ -226,6 +230,53 @@ const workflowSeeds = [
     lastRunAt: null,
     lastStatus: "",
     lastResponse: "",
+    responseLog: [],
+    errorLog: [],
+  },
+];
+
+const workflowTemplates = [
+  {
+    id: "n8n",
+    label: "n8n",
+    trigger: "n8n Webhook",
+    owner: "Claw Automations",
+    webhookPlaceholder: "http://localhost:5678/webhook/digital-world-dashboard",
+    payload: (workflow) => ({
+      prompt: `Teste ${workflow.title} mit einem konkreten Auftrag.`,
+      priority: "normal",
+      sourceSystem: "digital-world-dashboard",
+      output: ["summary", "next_actions"],
+    }),
+  },
+  {
+    id: "make",
+    label: "Make",
+    trigger: "Make Custom Webhook",
+    owner: "Claw Automations",
+    webhookPlaceholder: "https://hook.eu1.make.com/...",
+    payload: (workflow) => ({
+      prompt: `Starte ${workflow.title} als Make-Szenario.`,
+      scenario: workflow.id,
+      bundle: {
+        priority: "normal",
+        assignee: workflow.owner || "Digital World",
+      },
+    }),
+  },
+  {
+    id: "webhook",
+    label: "HTTP",
+    trigger: "HTTP POST",
+    owner: "Digital World",
+    webhookPlaceholder: "https://example.com/webhook",
+    payload: (workflow) => ({
+      prompt: `Fuehre ${workflow.title} aus.`,
+      metadata: {
+        workflowId: workflow.id,
+        workspace: "Digital World",
+      },
+    }),
   },
 ];
 
@@ -296,6 +347,8 @@ let state = loadState();
 let runTimers = new Map();
 let selectedRunId = null;
 let selectedSetupProviderId = null;
+let providerDiagnostics = {};
+let providerModelOptions = {};
 
 function loadState() {
   try {
@@ -682,6 +735,15 @@ function renderWorkflowRunner() {
     .map((item) => `<option value="${escapeHtml(item.id)}">${escapeHtml(item.title)}</option>`)
     .join("");
   $("#workflowSelect").value = workflow.id;
+  $("#workflowTemplateActions").innerHTML = workflowTemplates
+    .map(
+      (template) => `
+        <button class="subtle-button" type="button" data-workflow-template="${escapeHtml(template.id)}">
+          ${escapeHtml(template.label)}
+        </button>
+      `,
+    )
+    .join("");
   $("#workflowTrigger").value = workflow.trigger || "";
   $("#workflowOwner").value = workflow.owner || "";
   $("#workflowWebhookUrl").value = workflow.webhookUrl || "";
@@ -707,6 +769,61 @@ function renderWorkflowRunner() {
         : ""
     }
   `;
+  renderWorkflowPayloadPreview();
+  renderWorkflowLogs(workflow);
+}
+
+function renderWorkflowPayloadPreview() {
+  const workflow = getSelectedWorkflow();
+  const preview = buildWorkflowPayloadPreview(workflow);
+  const target = $("#workflowPayloadPreview");
+  if (!workflow || !target) return;
+  target.textContent = JSON.stringify(preview, null, 2);
+}
+
+function renderWorkflowLogs(workflow) {
+  const target = $("#workflowLogList");
+  if (!target) return;
+  const logs = [...(workflow.errorLog || []), ...(workflow.responseLog || [])]
+    .sort((a, b) => String(b.createdAt || "").localeCompare(String(a.createdAt || "")))
+    .slice(0, 4);
+  target.innerHTML = logs.length
+    ? logs
+        .map(
+          (entry) => `
+            <div class="workflow-log-entry ${entry.ok ? "" : "is-error"}">
+              <strong>${entry.ok ? "Letzte Response" : "Fehlerlog"} · ${escapeHtml(entry.status ? `HTTP ${entry.status}` : entry.statusText || entry.mode || "lokal")}</strong>
+              <span>${entry.createdAt ? formatRunDate(entry.createdAt) : "ohne Zeitstempel"}</span>
+              <pre>${escapeHtml(entry.response || "Keine Antwort gespeichert.")}</pre>
+            </div>
+          `,
+        )
+        .join("")
+    : `<div class="empty-state">Noch keine Workflow-Responses.</div>`;
+}
+
+function buildWorkflowPayloadPreview(workflow) {
+  if (!workflow) return {};
+  const rawInput = $("#workflowPayload")?.value.trim() || `Manueller Testlauf fuer ${workflow.title}`;
+  const parsed = parseJsonObject(rawInput);
+  return {
+    source: "digital-world-ki-dashboard",
+    event: "workflow.run",
+    createdAt: "<beim Start>",
+    workspace: state.settings.workspaceName || "Digital World",
+    prompt: parsed?.prompt || parsed?.task || rawInput,
+    input: rawInput,
+    data: parsed,
+    workflow: {
+      id: workflow.id,
+      title: workflow.title,
+      subtitle: workflow.subtitle,
+      active: workflow.active,
+      trigger: $("#workflowTrigger")?.value.trim() || workflow.trigger,
+      owner: $("#workflowOwner")?.value.trim() || workflow.owner,
+      steps: workflow.steps || [],
+    },
+  };
 }
 
 function getSelectedWorkflow() {
@@ -793,6 +910,7 @@ function renderAiSetup() {
           ? "Key gespeichert"
           : "Key fehlt"
         : "kein Key nötig";
+      const runtimeStatus = getProviderRuntimeStatus(provider);
       return `
         <button
           class="provider-card ${provider.id === selectedSetupProviderId ? "is-selected" : ""} ${provider.enabled ? "is-active" : ""}"
@@ -810,6 +928,7 @@ function renderAiSetup() {
           <div class="provider-badges">
             <span>${escapeHtml(provider.adapter)}</span>
             <span class="${provider.keyRequired && !provider.apiKeySet ? "is-warn" : "is-ok"}">${keyState}</span>
+            <span class="${runtimeStatus.className}">${escapeHtml(runtimeStatus.label)}</span>
           </div>
         </button>
       `;
@@ -817,6 +936,17 @@ function renderAiSetup() {
     .join("");
 
   renderProviderEditor();
+}
+
+function getProviderRuntimeStatus(provider) {
+  const diagnostic = providerDiagnostics[provider.id];
+  if (diagnostic?.state === "testing") return { label: "prüft", className: "is-warn" };
+  if (diagnostic?.state === "ok") return { label: "bereit", className: "is-ok" };
+  if (diagnostic?.state === "error") return { label: "Fehler", className: "is-warn" };
+  if (!provider.enabled) return { label: "inaktiv", className: "" };
+  if (provider.keyRequired && !provider.apiKeySet) return { label: "Key fehlt", className: "is-warn" };
+  if (!provider.model) return { label: "Modell fehlt", className: "is-warn" };
+  return { label: "konfiguriert", className: "is-ok" };
 }
 
 function renderProviderRouting() {
@@ -863,12 +993,14 @@ function getSelectedSetupProvider() {
 function renderProviderEditor() {
   const provider = getSelectedSetupProvider();
   if (!provider) return;
+  const runtimeStatus = getProviderRuntimeStatus(provider);
   $("#setupProviderCategory").textContent = provider.category || provider.company || "Provider";
   $("#setupProviderName").textContent = provider.name;
-  $("#setupProviderStatus").textContent = provider.enabled ? "aktiv" : "nicht aktiv";
+  $("#setupProviderStatus").textContent = runtimeStatus.label;
   $("#setupProviderEnabled").checked = Boolean(provider.enabled);
   $("#setupProviderBaseUrl").value = provider.baseUrl || "";
   $("#setupProviderModel").value = provider.model || "";
+  renderProviderModelSelect(provider);
   $("#setupProviderApiKey").value = "";
   $("#setupProviderApiKey").placeholder = provider.apiKeySet
     ? `${provider.apiKeyMasked} gespeichert · neuen Key eingeben zum Ersetzen`
@@ -885,6 +1017,38 @@ function renderProviderEditor() {
     $("#providerDiscoveryStatus").textContent =
       "Prueft die eingetragene URL plus 127.0.0.1 und localhost.";
   }
+  renderProviderTestResult(provider);
+}
+
+function renderProviderModelSelect(provider) {
+  const select = $("#setupProviderModelSelect");
+  const models = providerModelOptions[provider.id] || [];
+  select.hidden = !models.length;
+  if (!models.length) {
+    select.innerHTML = "";
+    return;
+  }
+  select.innerHTML = models
+    .map((model) => `<option value="${escapeHtml(model)}">${escapeHtml(model)}</option>`)
+    .join("");
+  select.value = models.includes(provider.model) ? provider.model : models[0];
+}
+
+function renderProviderTestResult(provider) {
+  const box = $("#providerTestResult");
+  const diagnostic = providerDiagnostics[provider.id];
+  box.hidden = !diagnostic;
+  if (!diagnostic) return;
+  const title =
+    diagnostic.state === "ok"
+      ? `${provider.name} bereit`
+      : diagnostic.state === "testing"
+        ? `${provider.name} wird geprüft`
+        : `${provider.name} Fehler`;
+  box.innerHTML = `
+    <strong>${escapeHtml(title)}</strong>
+    <pre>${escapeHtml([diagnostic.detail, diagnostic.reply].filter(Boolean).join("\n\n"))}</pre>
+  `;
 }
 
 function updateActiveToolChip() {
@@ -1439,6 +1603,32 @@ async function saveWorkflowProfile() {
   render();
 }
 
+function applyWorkflowTemplate(templateId) {
+  const workflow = getSelectedWorkflow();
+  const template = workflowTemplates.find((item) => item.id === templateId);
+  if (!workflow || !template) return;
+  $("#workflowTrigger").value = template.trigger;
+  $("#workflowOwner").value = template.owner;
+  $("#workflowWebhookUrl").placeholder = template.webhookPlaceholder;
+  $("#workflowPayload").value = JSON.stringify(template.payload(workflow), null, 2);
+  renderWorkflowPayloadPreview();
+  toast(`${template.label}-Vorlage geladen.`);
+}
+
+function formatWorkflowPayload() {
+  const field = $("#workflowPayload");
+  const workflow = getSelectedWorkflow();
+  if (!field || !workflow) return;
+  const raw = field.value.trim();
+  const parsed = parseJsonObject(raw);
+  if (parsed) {
+    field.value = JSON.stringify(parsed, null, 2);
+  } else {
+    field.value = JSON.stringify({ prompt: raw || `Manueller Testlauf fuer ${workflow.title}` }, null, 2);
+  }
+  renderWorkflowPayloadPreview();
+}
+
 async function runSelectedWorkflow(workflowId = state.selectedWorkflowId) {
   if (workflowId !== state.selectedWorkflowId) {
     state.selectedWorkflowId = workflowId;
@@ -1446,8 +1636,9 @@ async function runSelectedWorkflow(workflowId = state.selectedWorkflowId) {
   }
   const workflow = getSelectedWorkflow();
   if (!workflow) return;
-  const prompt =
+  const rawPayload =
     $("#workflowPayload")?.value.trim() || `Manueller Testlauf fuer ${workflow.title}`;
+  const prompt = getWorkflowPrompt(rawPayload, workflow);
   const run = createWorkflowRun(workflow, prompt);
 
   if (!canUseBackend()) {
@@ -1457,8 +1648,9 @@ async function runSelectedWorkflow(workflowId = state.selectedWorkflowId) {
   }
 
   try {
-    await runWorkflowViaBackend(run, workflow, prompt);
+    await runWorkflowViaBackend(run, workflow, rawPayload);
     $("#workflowPayload").value = "";
+    renderWorkflowPayloadPreview();
   } catch (error) {
     run.progress = 100;
     run.status = "done";
@@ -1512,7 +1704,7 @@ async function runWorkflowViaBackend(run, workflow, prompt) {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
-        prompt,
+        input: prompt,
         workspace: state.settings.workspaceName,
       }),
     });
@@ -1537,6 +1729,11 @@ async function runWorkflowViaBackend(run, workflow, prompt) {
     clearInterval(timer);
     runTimers.delete(run.id);
   }
+}
+
+function getWorkflowPrompt(rawPayload, workflow) {
+  const parsed = parseJsonObject(rawPayload);
+  return parsed?.prompt || parsed?.task || rawPayload || `Manueller Testlauf fuer ${workflow.title}`;
 }
 
 function seedPrompts() {
@@ -1696,6 +1893,7 @@ async function saveAiProvider(options = {}) {
     baseUrl: $("#setupProviderBaseUrl").value.trim(),
     model: $("#setupProviderModel").value.trim(),
   };
+  if (options.defaultProvider) payload.defaultProvider = true;
   const apiKey = $("#setupProviderApiKey").value.trim();
   if (apiKey) payload.apiKey = apiKey;
   try {
@@ -1717,14 +1915,33 @@ async function testAiProvider() {
   if (!provider) return;
   const saved = await saveAiProvider({ silent: true });
   if (!saved) return;
+  providerDiagnostics[saved.id] = {
+    state: "testing",
+    detail: "Sende Testprompt an den Provider...",
+  };
+  renderAiSetup();
   toast(`${saved.name} wird getestet...`);
   try {
     const result = await apiRequest(`/api/ai-providers/${encodeURIComponent(saved.id)}/test`, {
       method: "POST",
+      body: JSON.stringify({
+        prompt: "Antworte in einem kurzen deutschen Satz, dass die Verbindung funktioniert.",
+      }),
     });
+    providerDiagnostics[saved.id] = {
+      state: "ok",
+      detail: `${result.provider} · ${result.model} · ${Math.round(result.durationMs || 0)} ms`,
+      reply: result.reply,
+    };
     toast(`${result.provider} bereit: ${result.model}`);
     await hydrateFromBackend();
+    renderAiSetup();
   } catch (error) {
+    providerDiagnostics[saved.id] = {
+      state: "error",
+      detail: error.message,
+    };
+    renderAiSetup();
     toast(`Provider-Test fehlgeschlagen: ${error.message}`);
   }
 }
@@ -1734,6 +1951,10 @@ async function discoverOllamaProvider() {
   if (!provider) return;
   const status = $("#providerDiscoveryStatus");
   status.textContent = "Suche erreichbaren Ollama-Server...";
+  providerDiagnostics[provider.id] = {
+    state: "testing",
+    detail: "Ollama-Endpunkte werden geprüft...",
+  };
   try {
     const result = await apiRequest(`/api/ai-providers/${encodeURIComponent(provider.id)}/discover`, {
       method: "POST",
@@ -1743,9 +1964,11 @@ async function discoverOllamaProvider() {
       }),
     });
     const model = result.recommendedModel || result.models?.[0] || $("#setupProviderModel").value.trim();
+    providerModelOptions[provider.id] = result.models || [];
     $("#setupProviderBaseUrl").value = result.baseUrl;
     $("#setupProviderModel").value = model;
     $("#setupProviderEnabled").checked = true;
+    renderProviderModelSelect({ ...provider, model });
     status.textContent = result.models?.length
       ? `${result.models.length} Modelle gefunden: ${result.models.slice(0, 3).join(", ")}`
       : "Ollama erreicht, aber keine Modelle gemeldet.";
@@ -1758,12 +1981,35 @@ async function discoverOllamaProvider() {
         defaultProvider: true,
       }),
     });
+    providerDiagnostics[provider.id] = {
+      state: result.models?.length ? "ok" : "error",
+      detail: result.models?.length
+        ? `Modelle: ${result.models.join(", ")}`
+        : "Ollama ist erreichbar, meldet aber keine Modelle.",
+    };
     await hydrateFromBackend();
+    renderAiSetup();
     toast(`${updated.name} verbunden: ${model}`);
   } catch (error) {
+    providerDiagnostics[provider.id] = {
+      state: "error",
+      detail: error.message,
+    };
+    renderAiSetup();
     status.textContent = error.message;
     toast(`Ollama nicht gefunden: ${error.message}`);
   }
+}
+
+async function setDefaultAiProvider() {
+  const provider = getSelectedSetupProvider();
+  if (!provider) return;
+  const saved = await saveAiProvider({ silent: true, defaultProvider: true });
+  if (!saved) return;
+  state.settings.defaultProviderId = saved.id;
+  state.settings.modelName = saved.model || state.settings.modelName;
+  await hydrateFromBackend();
+  toast(`${saved.name} ist jetzt Standard.`);
 }
 
 async function clearAiProviderKey() {
@@ -1803,6 +2049,11 @@ async function checkBackend() {
     if (state.settings.providerMode === "mock" && data.provider === "mock") {
       status.classList.add("is-online");
       status.querySelector("span:last-child").textContent = "Demo-Modus aktiv";
+      return true;
+    }
+    if (data.providerStatus?.checked && !data.providerStatus.ok) {
+      status.classList.add("is-offline");
+      status.querySelector("span:last-child").textContent = `${data.provider} nicht erreichbar`;
       return true;
     }
     status.classList.add("is-online");
@@ -2033,6 +2284,17 @@ function formatProvider(provider) {
   return provider || "Demo-Modus";
 }
 
+function parseJsonObject(value) {
+  const text = String(value || "").trim();
+  if (!text || !/^[\[{]/.test(text)) return null;
+  try {
+    const parsed = JSON.parse(text);
+    return parsed && typeof parsed === "object" && !Array.isArray(parsed) ? parsed : null;
+  } catch {
+    return null;
+  }
+}
+
 function escapeHtml(value) {
   return String(value)
     .replaceAll("&", "&amp;")
@@ -2095,6 +2357,12 @@ function bindEvents() {
       return;
     }
 
+    const workflowTemplate = event.target.closest("[data-workflow-template]");
+    if (workflowTemplate) {
+      applyWorkflowTemplate(workflowTemplate.dataset.workflowTemplate);
+      return;
+    }
+
     const runOpen = event.target.closest("[data-run-open]");
     if (runOpen) {
       openRunResult(runOpen.dataset.runOpen);
@@ -2132,6 +2400,10 @@ function bindEvents() {
   $("#workflowSelect").addEventListener("change", (event) => selectWorkflow(event.target.value));
   $("#saveWorkflowProfile").addEventListener("click", saveWorkflowProfile);
   $("#runWorkflow").addEventListener("click", () => runSelectedWorkflow());
+  $("#formatWorkflowPayload").addEventListener("click", formatWorkflowPayload);
+  $("#workflowPayload").addEventListener("input", renderWorkflowPayloadPreview);
+  $("#workflowTrigger").addEventListener("input", renderWorkflowPayloadPreview);
+  $("#workflowOwner").addEventListener("input", renderWorkflowPayloadPreview);
   $("#newWorkflow").addEventListener("click", addWorkflow);
   $("#seedPrompts").addEventListener("click", seedPrompts);
   $("#testApi").addEventListener("click", runApiTest);
@@ -2171,9 +2443,13 @@ function bindEvents() {
     event.preventDefault();
     saveAiProvider();
   });
+  $("#setupProviderModelSelect").addEventListener("change", (event) => {
+    $("#setupProviderModel").value = event.target.value;
+  });
   $("#testBackend").addEventListener("click", testBackend);
   $("#testProvider").addEventListener("click", testAiProvider);
   $("#discoverOllama").addEventListener("click", discoverOllamaProvider);
+  $("#setDefaultProvider").addEventListener("click", setDefaultAiProvider);
   $("#clearProviderKey").addEventListener("click", clearAiProviderKey);
   document.addEventListener("change", (event) => {
     const routeSelect = event.target.closest("[data-route-tool]");

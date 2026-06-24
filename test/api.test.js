@@ -29,7 +29,7 @@ async function withTestServer(run) {
   }
 }
 
-async function withWebhookReceiver(run) {
+async function withWebhookReceiver(run, options = {}) {
   const requests = [];
   const server = http.createServer((req, res) => {
     let raw = "";
@@ -39,8 +39,9 @@ async function withWebhookReceiver(run) {
     req.on("end", () => {
       const body = raw ? JSON.parse(raw) : {};
       requests.push({ method: req.method, url: req.url, body });
-      res.writeHead(200, { "Content-Type": "application/json" });
-      res.end(JSON.stringify({ ok: true, receivedWorkflow: body.workflow?.id }));
+      const status = options.status || 200;
+      res.writeHead(status, { "Content-Type": "application/json" });
+      res.end(JSON.stringify(options.body || { ok: status < 400, receivedWorkflow: body.workflow?.id }));
     });
   });
   await new Promise((resolve) => server.listen(0, "127.0.0.1", resolve));
@@ -58,6 +59,21 @@ async function withOllamaServer(models, run) {
     if (req.method === "GET" && req.url === "/api/tags") {
       res.writeHead(200, { "Content-Type": "application/json" });
       res.end(JSON.stringify({ models: models.map((name) => ({ name })) }));
+      return;
+    }
+    if (req.method === "POST" && req.url === "/api/chat") {
+      let raw = "";
+      req.on("data", (chunk) => {
+        raw += chunk;
+      });
+      req.on("end", () => {
+        const body = raw ? JSON.parse(raw) : {};
+        res.writeHead(200, { "Content-Type": "application/json" });
+        res.end(JSON.stringify({
+          model: body.model || models[0] || "test-model",
+          message: { role: "assistant", content: "Verbindung OK." },
+        }));
+      });
       return;
     }
     res.writeHead(404, { "Content-Type": "application/json" });
@@ -186,6 +202,8 @@ test("workflow runner creates a local dry run without webhook", async () => {
     const workflow = data.workflows.find((item) => item.id === "lead-research");
     assert.equal(workflow.lastStatus, "lokal");
     assert.ok(workflow.lastRunAt);
+    assert.equal(workflow.responseLog.length, 1);
+    assert.equal(workflow.responseLog[0].ok, true);
   });
 });
 
@@ -227,7 +245,43 @@ test("workflow runner posts JSON to configured webhook", async () => {
       const workflow = data.workflows.find((item) => item.id === "support-triage");
       assert.equal(workflow.lastStatus, "OK HTTP 200");
       assert.match(workflow.lastResponse, /receivedWorkflow/);
+      assert.equal(workflow.responseLog.length, 1);
+      assert.equal(workflow.responseLog[0].status, 200);
+      assert.equal(workflow.errorLog.length, 0);
     });
+  });
+});
+
+test("workflow runner stores webhook errors per workflow", async () => {
+  await withTestServer(async ({ baseUrl, store }) => {
+    await withWebhookReceiver(
+      async ({ url }) => {
+        await fetch(`${baseUrl}/api/workflows/support-triage`, {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ webhookUrl: url }),
+        });
+
+        const runResponse = await fetch(`${baseUrl}/api/workflows/support-triage/run`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            input: JSON.stringify({ prompt: "Fehlerlog pruefen", ticketId: "T-42" }),
+            workspace: "Digital World",
+          }),
+        });
+        assert.equal(runResponse.status, 201);
+
+        const data = await store.readData();
+        const workflow = data.workflows.find((item) => item.id === "support-triage");
+        assert.equal(workflow.lastStatus, "Fehler HTTP 500");
+        assert.equal(workflow.responseLog.length, 1);
+        assert.equal(workflow.errorLog.length, 1);
+        assert.equal(workflow.errorLog[0].status, 500);
+        assert.equal(workflow.errorLog[0].payload.prompt, "Fehlerlog pruefen");
+      },
+      { status: 500, body: { error: "boom" } },
+    );
   });
 });
 
@@ -266,6 +320,37 @@ test("AI provider setup stores keys server-side and redacts public payloads", as
     const health = await (await fetch(`${baseUrl}/api/health`)).json();
     assert.equal(health.provider, "ChatGPT / OpenAI");
     assert.equal(health.model, "gpt-test");
+  });
+});
+
+test("AI provider test returns sample reply and timing", async () => {
+  await withTestServer(async ({ baseUrl }) => {
+    await withOllamaServer(["llama3.2:3b"], async ({ baseUrl: ollamaUrl }) => {
+      await fetch(`${baseUrl}/api/ai-providers/ollama`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          enabled: true,
+          baseUrl: ollamaUrl,
+          model: "llama3.2:3b",
+          defaultProvider: true,
+        }),
+      });
+
+      const response = await fetch(`${baseUrl}/api/ai-providers/ollama/test`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          prompt: "Antworte nur mit: Verbindung OK.",
+        }),
+      });
+      assert.equal(response.status, 200);
+      const result = await response.json();
+      assert.equal(result.ok, true);
+      assert.equal(result.provider, "Ollama lokal");
+      assert.equal(typeof result.durationMs, "number");
+      assert.match(result.reply, /Verbindung OK/);
+    });
   });
 });
 

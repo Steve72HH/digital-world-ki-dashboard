@@ -243,6 +243,7 @@
                 Workflow
                 <select id="workflowSelect"></select>
               </label>
+              <div class="workflow-template-actions" id="workflowTemplateActions"></div>
               <div class="workflow-brief" id="workflowBrief"></div>
               <div class="form-grid-two">
                 <label>
@@ -262,6 +263,14 @@
                 Testpayload
                 <textarea id="workflowPayload" rows="4" placeholder="Was soll dieser Workflow jetzt verarbeiten?"></textarea>
               </label>
+              <div class="workflow-payload-box">
+                <div class="workflow-box-head">
+                  <strong>Payload Preview</strong>
+                  <button class="subtle-button" id="formatWorkflowPayload" type="button">Formatieren</button>
+                </div>
+                <pre id="workflowPayloadPreview">{}</pre>
+              </div>
+              <div class="workflow-log-list" id="workflowLogList"></div>
               <div class="workflow-runner-actions">
                 <button class="primary-button" id="runWorkflow" type="button">
                   <svg><use href="#icon-send"></use></svg>
@@ -405,12 +414,14 @@
           <label>
             Modell / Deployment
             <input id="setupProviderModel" type="text" placeholder="gpt-4.1-mini, llama3.2:1b, ..." />
+            <select id="setupProviderModelSelect" hidden></select>
           </label>
           <label>
             API-Key
             <input id="setupProviderApiKey" type="password" placeholder="Neuen Key eingeben oder leer lassen" autocomplete="off" />
           </label>
           <p class="setup-hint" id="setupProviderHint">Keys werden nur serverseitig gespeichert und in der Oberfläche maskiert.</p>
+          <div class="provider-test-result" id="providerTestResult" hidden></div>
           <div class="provider-discovery" id="providerDiscoveryPanel" hidden>
             <div>
               <strong>Ollama Auto-Setup</strong>
@@ -424,6 +435,7 @@
               Provider speichern
             </button>
             <button class="subtle-button" id="testProvider" type="button">Verbindung testen</button>
+            <button class="subtle-button" id="setDefaultProvider" type="button">Als Standard</button>
             <button class="subtle-button" id="clearProviderKey" type="button">Key löschen</button>
           </div>
         </form>

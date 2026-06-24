@@ -73,12 +73,14 @@ async function handleApi({ req, res, url, store, ai, config }) {
   if (method === "GET" && pathName === "/api/health") {
     const effectiveAi = await store.getEffectiveAiConfig(config.ai);
     const aiInfo = ai.publicInfo(effectiveAi);
+    const providerStatus = await getProviderHealth(ai, effectiveAi);
     sendJson(res, 200, {
       ok: true,
       version: "0.2.0",
       provider: aiInfo.provider,
       model: aiInfo.model,
       baseUrl: aiInfo.baseUrl,
+      providerStatus,
       storage: path.relative(config.rootDir, store.dataFile),
     });
     return;
@@ -135,12 +137,14 @@ async function handleApi({ req, res, url, store, ai, config }) {
   }
 
   if (parts[1] === "ai-providers" && parts[2] && parts[3] === "test" && method === "POST") {
+    const body = await readJson(req);
     const providerConfig = await store.getEffectiveAiConfig(config.ai, parts[2]);
     if (providerConfig.keyRequired && !providerConfig.apiKey) {
       throw createHttpError(400, "API key is missing for this provider");
     }
+    const startedAt = Date.now();
     const reply = await ai.createReply({
-      prompt: "Antworte nur mit: Verbindung OK.",
+      prompt: clean(body.prompt) || "Antworte kurz mit: Verbindung OK.",
       mode: "setup-test",
       tool: { id: "ki-setup", label: "KI-Setup" },
       model: providerConfig.model,
@@ -152,6 +156,7 @@ async function handleApi({ req, res, url, store, ai, config }) {
       provider: reply.provider,
       model: reply.model,
       reply: reply.reply,
+      durationMs: Date.now() - startedAt,
     });
     return;
   }
@@ -279,6 +284,30 @@ async function handleApi({ req, res, url, store, ai, config }) {
   }
 
   sendJson(res, 404, { error: "API route not found" });
+}
+
+async function getProviderHealth(ai, effectiveAi) {
+  if (effectiveAi.provider !== "ollama") return { checked: false };
+  try {
+    const result = await ai.discoverProvider(effectiveAi, {
+      baseUrl: effectiveAi.baseUrl,
+      model: effectiveAi.model,
+      timeoutMs: 550,
+    });
+    return {
+      checked: true,
+      ok: Boolean(result.ok && result.models?.length),
+      models: result.models || [],
+      error: result.error || result.warning || "",
+    };
+  } catch (error) {
+    return {
+      checked: true,
+      ok: false,
+      models: [],
+      error: error.message || "Provider check failed",
+    };
+  }
 }
 
 function setCors(res) {

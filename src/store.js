@@ -140,6 +140,8 @@ function createStore(options = {}) {
           lastRunAt: null,
           lastStatus: "",
           lastResponse: "",
+          responseLog: [],
+          errorLog: [],
         };
         data.workflows.unshift(workflow);
         addActivity(data, "Workflow angelegt", workflow.title, "#f6b84d");
@@ -186,6 +188,11 @@ function createStore(options = {}) {
           ? `${webhookResult.ok ? "OK" : "Fehler"}${webhookResult.status ? ` HTTP ${webhookResult.status}` : ""}`
           : "lokal";
         workflow.lastResponse = clip(webhookResult.body || webhookResult.statusText || "", 1200);
+        const logEntry = buildWorkflowLogEntry(workflow, webhookUrl, webhookResult, eventPayload, startedAt);
+        workflow.responseLog = [logEntry, ...(workflow.responseLog || [])].slice(0, 8);
+        if (!webhookResult.ok) {
+          workflow.errorLog = [logEntry, ...(workflow.errorLog || [])].slice(0, 8);
+        }
         const run = createRun({
           prompt: eventPayload.prompt || `Workflow ausfuehren: ${workflow.title}`,
           mode: "workflow",
@@ -350,7 +357,27 @@ function normalizeWorkflow(workflow, seed = {}) {
     lastRunAt: workflow.lastRunAt || null,
     lastStatus: clean(workflow.lastStatus || ""),
     lastResponse: clean(workflow.lastResponse || ""),
+    responseLog: normalizeWorkflowLog(workflow.responseLog),
+    errorLog: normalizeWorkflowLog(workflow.errorLog),
   };
+}
+
+function normalizeWorkflowLog(log) {
+  if (!Array.isArray(log)) return [];
+  return log
+    .map((entry) => ({
+      id: clean(entry.id || uid("workflow-log")),
+      createdAt: entry.createdAt || null,
+      ok: Boolean(entry.ok),
+      status: Number(entry.status || 0),
+      statusText: clean(entry.statusText || ""),
+      mode: clean(entry.mode || "local"),
+      response: clip(entry.response || "", 1600),
+      payload: entry.payload && typeof entry.payload === "object" && !Array.isArray(entry.payload)
+        ? entry.payload
+        : null,
+    }))
+    .slice(0, 8);
 }
 
 function normalizeConnectors(input, seedConnectors) {
@@ -483,14 +510,17 @@ function validateWebhookUrl(value) {
 }
 
 function buildWorkflowPayload(workflow, payload, settings, startedAt) {
-  const prompt = clean(payload.prompt || payload.input || "");
+  const input = clean(payload.input || payload.prompt || "");
+  const parsedInput = parseJsonObject(input);
+  const prompt = clean(parsedInput?.prompt || parsedInput?.task || payload.prompt || payload.input || "");
   return {
     source: "digital-world-ki-dashboard",
     event: "workflow.run",
     createdAt: startedAt,
     workspace: clean(payload.workspace || settings.workspaceName || "Digital World"),
     prompt,
-    input: prompt,
+    input,
+    data: parsedInput,
     workflow: {
       id: workflow.id,
       title: workflow.title,
@@ -499,6 +529,24 @@ function buildWorkflowPayload(workflow, payload, settings, startedAt) {
       trigger: workflow.trigger,
       owner: workflow.owner,
       steps: workflow.steps,
+    },
+  };
+}
+
+function buildWorkflowLogEntry(workflow, webhookUrl, result, payload, startedAt) {
+  return {
+    id: uid("workflow-log"),
+    createdAt: startedAt,
+    ok: Boolean(result.ok),
+    status: Number(result.status || 0),
+    statusText: clean(result.statusText || ""),
+    mode: webhookUrl ? "webhook" : "local",
+    response: clip(result.body || result.statusText || "", 1600),
+    payload: {
+      prompt: payload.prompt,
+      workflow: payload.workflow?.id || workflow.id,
+      workspace: payload.workspace,
+      data: payload.data,
     },
   };
 }
@@ -549,6 +597,17 @@ function formatWebhookBody(text, contentType = "") {
     }
   }
   return text;
+}
+
+function parseJsonObject(value) {
+  const text = clean(value);
+  if (!text || !/^[\[{]/.test(text)) return null;
+  try {
+    const parsed = JSON.parse(text);
+    return parsed && typeof parsed === "object" && !Array.isArray(parsed) ? parsed : null;
+  } catch {
+    return null;
+  }
 }
 
 function buildWorkflowOutput(workflow, webhookUrl, result) {

@@ -68,6 +68,8 @@ const seedWorkflows = [
     lastRunAt: null,
     lastStatus: "",
     lastResponse: "",
+    responseLog: [],
+    errorLog: [],
   },
   {
     id: "content-repurpose",
@@ -81,6 +83,8 @@ const seedWorkflows = [
     lastRunAt: null,
     lastStatus: "",
     lastResponse: "",
+    responseLog: [],
+    errorLog: [],
   },
   {
     id: "support-triage",
@@ -94,6 +98,8 @@ const seedWorkflows = [
     lastRunAt: null,
     lastStatus: "",
     lastResponse: "",
+    responseLog: [],
+    errorLog: [],
   },
 ];
 
