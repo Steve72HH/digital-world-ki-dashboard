@@ -186,7 +186,10 @@
                 <p class="panel-kicker">Agent Studio</p>
                 <h2>Rollen & Provider</h2>
               </div>
-              <button class="subtle-button" id="saveAgentProfile" type="button">Speichern</button>
+              <div class="panel-actions">
+                <button class="subtle-button" id="newAgent" type="button">Neu</button>
+                <button class="subtle-button" id="saveAgentProfile" type="button">Speichern</button>
+              </div>
             </div>
             <div class="agent-studio">
               <label>
@@ -194,6 +197,26 @@
                 <select id="agentSelect"></select>
               </label>
               <div class="agent-brief" id="agentBrief"></div>
+              <div class="form-grid-two">
+                <label>
+                  Name
+                  <input id="agentName" type="text" placeholder="Research Scout" />
+                </label>
+                <label>
+                  Rolle
+                  <input id="agentRole" type="text" placeholder="Recherche, Vergleich, Quellen" />
+                </label>
+              </div>
+              <div class="form-grid-two">
+                <label>
+                  Kürzel
+                  <input id="agentInitials" type="text" maxlength="3" placeholder="RS" />
+                </label>
+                <label>
+                  Farbe
+                  <input id="agentColor" type="color" value="#18d4c5" />
+                </label>
+              </div>
               <label>
                 Provider
                 <select id="agentProviderId"></select>
@@ -203,13 +226,19 @@
                 <input id="agentModel" type="text" placeholder="Standardmodell des Providers" />
               </label>
               <label>
+                Tools
+                <input id="agentTools" type="text" placeholder="webhook, browser, docs" />
+              </label>
+              <label>
                 Systembriefing
                 <textarea id="agentInstructions" rows="5" placeholder="Wie soll dieser Agent arbeiten?"></textarea>
               </label>
+              <div class="agent-template-actions" id="agentTemplateActions"></div>
               <label>
                 Auftrag testen
                 <textarea id="agentPrompt" rows="3" placeholder="Gib diesem Agenten eine konkrete Aufgabe."></textarea>
               </label>
+              <div class="agent-history" id="agentHistory"></div>
               <div class="agent-actions">
                 <button class="primary-button" id="runAgent" type="button">
                   <svg><use href="#icon-send"></use></svg>

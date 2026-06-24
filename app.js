@@ -187,6 +187,24 @@ const agents = [
   },
 ];
 
+const agentPromptTemplates = [
+  {
+    id: "plan",
+    label: "Plan",
+    text: "Erstelle einen klaren Arbeitsplan mit Ziel, Annahmen, Schritten, Risiken und naechster Aktion fuer: ",
+  },
+  {
+    id: "review",
+    label: "Review",
+    text: "Pruefe diesen Entwurf kritisch und nenne konkrete Verbesserungen, offene Fragen und Prioritaeten: ",
+  },
+  {
+    id: "automation",
+    label: "Automation",
+    text: "Baue daraus eine Automationsidee mit Trigger, Datenquellen, Tools, Fehlerfaellen und MVP-Schritten: ",
+  },
+];
+
 const workflowSeeds = [
   {
     id: "lead-research",
@@ -674,10 +692,24 @@ function renderAgentStudio() {
     .map((item) => `<option value="${escapeHtml(item.id)}">${escapeHtml(item.name)}</option>`)
     .join("");
   $("#agentSelect").value = agent.id;
+  $("#agentName").value = agent.name || "";
+  $("#agentRole").value = agent.role || "";
+  $("#agentInitials").value = agent.initials || "";
+  $("#agentColor").value = agent.color || "#18d4c5";
   $("#agentProviderId").innerHTML = providerOptions;
   $("#agentProviderId").value = providerValue;
   $("#agentModel").value = agent.model || "";
+  $("#agentTools").value = (agent.tools || []).join(", ");
   $("#agentInstructions").value = agent.instructions || "";
+  $("#agentTemplateActions").innerHTML = agentPromptTemplates
+    .map(
+      (template) => `
+        <button class="subtle-button" type="button" data-agent-template="${escapeHtml(template.id)}">
+          ${escapeHtml(template.label)}
+        </button>
+      `,
+    )
+    .join("");
   $("#agentBrief").innerHTML = `
     <strong>${escapeHtml(agent.name)} · ${agent.active ? "aktiv" : "pausiert"}</strong>
     <span>${escapeHtml(agent.role)} · Provider: ${escapeHtml(getProviderLabel(agent.providerId || getProviderIdForTool("agents")))}</span>
@@ -685,6 +717,27 @@ function renderAgentStudio() {
       ${(agent.tools || []).map((tool) => `<span>${escapeHtml(tool)}</span>`).join("")}
     </div>
   `;
+  renderAgentHistory(agent);
+}
+
+function renderAgentHistory(agent) {
+  const target = $("#agentHistory");
+  if (!target) return;
+  const runs = state.runs
+    .filter((run) => run.agentId === agent.id || run.toolId === `agent-${agent.id}`)
+    .slice(0, 4);
+  target.innerHTML = runs.length
+    ? runs
+        .map(
+          (run) => `
+            <div class="agent-history-row">
+              <strong>${escapeHtml(run.title || run.prompt || "Agentenlauf")}</strong>
+              <span>${escapeHtml(run.model || state.settings.modelName)} · ${formatProvider(run.provider)} · ${formatRunDate(run.createdAt)}</span>
+            </div>
+          `,
+        )
+        .join("")
+    : `<div class="empty-state">Noch keine Laeufe fuer diesen Agenten.</div>`;
 }
 
 function getVisibleAgents() {
@@ -1390,8 +1443,13 @@ async function saveAgentProfile() {
   const agent = getSelectedAgent();
   if (!agent) return;
   const patch = {
+    name: $("#agentName").value.trim(),
+    role: $("#agentRole").value.trim(),
+    initials: $("#agentInitials").value.trim(),
+    color: $("#agentColor").value.trim(),
     providerId: $("#agentProviderId").value,
     model: $("#agentModel").value.trim(),
+    tools: parseAgentTools($("#agentTools").value),
     instructions: $("#agentInstructions").value.trim(),
   };
   if (canUseBackend()) {
@@ -1413,6 +1471,52 @@ async function saveAgentProfile() {
   addActivity("Agent aktualisiert", agent.name, agent.color);
   persist();
   render();
+}
+
+async function createAgent() {
+  const count = getVisibleAgents().length + 1;
+  const payload = {
+    name: `KI-Mitarbeiter ${count}`,
+    role: "Eigener Assistent",
+    initials: `K${count}`.slice(0, 3),
+    color: "#18d4c5",
+    active: true,
+    providerId: state.settings.defaultProviderId || "",
+    model: state.settings.modelName || "",
+    tools: ["chat", "workflow"],
+    instructions: "Arbeite strukturiert, knapp und praktisch. Nenne Annahmen und naechste Schritte.",
+  };
+  if (canUseBackend()) {
+    try {
+      const agent = await apiRequest("/api/agents", {
+        method: "POST",
+        body: JSON.stringify(payload),
+      });
+      state.selectedAgentId = agent.id;
+      await hydrateFromBackend();
+      toast(`${agent.name} angelegt.`);
+      return;
+    } catch (error) {
+      toast(`Agent konnte nicht angelegt werden: ${error.message}`);
+    }
+  }
+  const agent = {
+    id: uid(),
+    ...payload,
+  };
+  state.serverAgents = [agent, ...getVisibleAgents()];
+  state.selectedAgentId = agent.id;
+  state.activeAgents = [...new Set([...state.activeAgents, agent.id])];
+  addActivity("Agent angelegt", agent.name, agent.color);
+  persist();
+  render();
+}
+
+function applyAgentPromptTemplate(templateId) {
+  const template = agentPromptTemplates.find((item) => item.id === templateId);
+  if (!template) return;
+  $("#agentPrompt").value = template.text;
+  $("#agentPrompt").focus();
 }
 
 async function runSelectedAgent() {
@@ -2295,6 +2399,14 @@ function parseJsonObject(value) {
   }
 }
 
+function parseAgentTools(value) {
+  return String(value || "")
+    .split(/[,;\n]/)
+    .map((tool) => tool.trim())
+    .filter(Boolean)
+    .slice(0, 12);
+}
+
 function escapeHtml(value) {
   return String(value)
     .replaceAll("&", "&amp;")
@@ -2336,6 +2448,12 @@ function bindEvents() {
     const agentSelect = event.target.closest("[data-agent-select]");
     if (agentSelect) {
       selectAgent(agentSelect.dataset.agentSelect);
+      return;
+    }
+
+    const agentTemplate = event.target.closest("[data-agent-template]");
+    if (agentTemplate) {
+      applyAgentPromptTemplate(agentTemplate.dataset.agentTemplate);
       return;
     }
 
@@ -2394,6 +2512,7 @@ function bindEvents() {
   $("#voiceButton").addEventListener("click", () => toast("Sprachmodus ist fuer V2 markiert."));
   $("#clearRuns").addEventListener("click", clearRuns);
   $("#activateAllAgents").addEventListener("click", activateAllAgents);
+  $("#newAgent").addEventListener("click", createAgent);
   $("#agentSelect").addEventListener("change", (event) => selectAgent(event.target.value));
   $("#saveAgentProfile").addEventListener("click", saveAgentProfile);
   $("#runAgent").addEventListener("click", runSelectedAgent);

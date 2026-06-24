@@ -215,11 +215,35 @@ function createStore(options = {}) {
     async setAgentActive(id, active) {
       return this.patchAgent(id, { active });
     },
+    async addAgent(payload) {
+      return update((data) => {
+        const agent = normalizeAgent({
+          id: uid("agent"),
+          name: clean(payload.name || `KI-Agent ${data.agents.length + 1}`),
+          role: clean(payload.role || "Eigener Assistent"),
+          initials: clean(payload.initials || initialsFromName(payload.name || "KI-Agent")),
+          color: clean(payload.color || "#18d4c5"),
+          active: "active" in payload ? Boolean(payload.active) : true,
+          tools: normalizeSteps(payload.tools || ["chat", "workflow"]),
+          providerId: clean(payload.providerId || data.settings.defaultProviderId || ""),
+          model: clean(payload.model || data.settings.defaultModel || ""),
+          instructions: clean(payload.instructions || "Arbeite strukturiert, knapp und praktisch."),
+        });
+        data.agents.unshift(agent);
+        addActivity(data, "Agent angelegt", agent.name, agent.color);
+        return agent;
+      });
+    },
     async patchAgent(id, patch) {
       return update((data) => {
         const agent = data.agents.find((item) => item.id === id);
         if (!agent) throw createHttpError(404, "Agent not found");
+        if ("name" in patch) agent.name = clean(patch.name) || agent.name;
+        if ("role" in patch) agent.role = clean(patch.role) || agent.role;
+        if ("initials" in patch) agent.initials = clean(patch.initials || initialsFromName(agent.name)).slice(0, 3);
+        if ("color" in patch) agent.color = clean(patch.color) || agent.color;
         if ("active" in patch) agent.active = Boolean(patch.active);
+        if ("tools" in patch) agent.tools = normalizeSteps(patch.tools);
         if ("providerId" in patch) agent.providerId = clean(patch.providerId);
         if ("model" in patch) agent.model = clean(patch.model);
         if ("instructions" in patch) agent.instructions = clean(patch.instructions);
@@ -487,6 +511,12 @@ function buildRunTitle(prompt, toolLabel) {
 function normalizeSteps(steps) {
   if (!Array.isArray(steps)) return ["Trigger", "KI", "Output"];
   return steps.map(clean).filter(Boolean).slice(0, 8);
+}
+
+function initialsFromName(value) {
+  const parts = clean(value).split(/\s+/).filter(Boolean);
+  const initials = parts.map((part) => part[0]).join("").slice(0, 3).toUpperCase();
+  return initials || "AI";
 }
 
 function cleanWebhookUrl(value) {

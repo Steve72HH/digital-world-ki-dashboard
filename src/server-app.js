@@ -218,6 +218,11 @@ async function handleApi({ req, res, url, store, ai, config }) {
     return;
   }
 
+  if (method === "POST" && pathName === "/api/agents") {
+    sendJson(res, 201, await store.addAgent(await readJson(req)));
+    return;
+  }
+
   if (parts[1] === "agents" && parts[2] && method === "PATCH") {
     const body = await readJson(req);
     sendJson(res, 200, await store.patchAgent(parts[2], body));

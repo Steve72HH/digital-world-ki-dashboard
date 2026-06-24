@@ -455,6 +455,52 @@ test("agent profiles can be configured and executed", async () => {
   });
 });
 
+test("custom agents can be created and fully configured", async () => {
+  await withTestServer(async ({ baseUrl, store }) => {
+    const createResponse = await fetch(`${baseUrl}/api/agents`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        name: "Sales Scout",
+        role: "Leads, CRM, Outreach",
+        initials: "SS",
+        color: "#18d4c5",
+        active: true,
+        providerId: "openai",
+        model: "gpt-test",
+        tools: ["crm", "webhook", "research"],
+        instructions: "Arbeite als Sales-Agent.",
+      }),
+    });
+    assert.equal(createResponse.status, 201);
+    const created = await createResponse.json();
+    assert.equal(created.name, "Sales Scout");
+    assert.deepEqual(created.tools, ["crm", "webhook", "research"]);
+
+    const patchResponse = await fetch(`${baseUrl}/api/agents/${created.id}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        name: "Sales Operator",
+        role: "Pipeline und Follow-ups",
+        initials: "SO",
+        color: "#75d66b",
+        tools: ["crm", "email"],
+      }),
+    });
+    assert.equal(patchResponse.status, 200);
+    const patched = await patchResponse.json();
+    assert.equal(patched.name, "Sales Operator");
+    assert.equal(patched.role, "Pipeline und Follow-ups");
+    assert.equal(patched.initials, "SO");
+    assert.equal(patched.color, "#75d66b");
+    assert.deepEqual(patched.tools, ["crm", "email"]);
+
+    const data = await store.readData();
+    assert.ok(data.agents.some((agent) => agent.id === created.id && agent.name === "Sales Operator"));
+  });
+});
+
 test("static index is served", async () => {
   await withTestServer(async ({ baseUrl }) => {
     const response = await fetch(`${baseUrl}/`);
