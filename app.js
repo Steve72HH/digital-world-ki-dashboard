@@ -24,6 +24,7 @@ const navItems = [
   { id: "home", label: "Startseite", icon: icons.home, target: "top" },
   { id: "chat", label: "KI-Chat", icon: icons.chat, target: "command" },
   { id: "workflows", label: "Workflows", icon: icons.flow, target: "workflows" },
+  { id: "connectors", label: "Connectoren", icon: icons.server, target: "connectors" },
   { id: "drive", label: "Laufwerk", icon: icons.drive, target: "vault" },
   { id: "agents", label: "Agenten", icon: icons.agents, target: "agents" },
   { id: "settings", label: "KI-Setup", icon: icons.settings, target: "settings" },
@@ -325,6 +326,102 @@ const promptSeeds = [
   },
 ];
 
+const connectorSeeds = [
+  {
+    id: "n8n",
+    name: "n8n Webhook",
+    type: "automation",
+    status: "optional",
+    enabled: false,
+    endpointUrl: "",
+    method: "POST",
+    authType: "none",
+    description: "Eigene n8n-Workflows per Webhook starten und testen.",
+    testPayload: {
+      prompt: "Teste den n8n-Workflow aus dem Digital World KI Dashboard.",
+      source: "connector-center",
+    },
+    linkedWorkflowIds: [],
+  },
+  {
+    id: "make",
+    name: "Make Webhook",
+    type: "automation",
+    status: "optional",
+    enabled: false,
+    endpointUrl: "",
+    method: "POST",
+    authType: "none",
+    description: "Make-Szenarien ueber Custom Webhooks als KI-Automation nutzen.",
+    testPayload: {
+      prompt: "Teste das Make-Szenario aus dem Digital World KI Dashboard.",
+      source: "connector-center",
+    },
+    linkedWorkflowIds: [],
+  },
+  {
+    id: "github",
+    name: "GitHub",
+    type: "devops",
+    status: "planned",
+    enabled: false,
+    endpointUrl: "",
+    method: "POST",
+    authType: "bearer",
+    description: "Spaeter fuer Issues, Pull Requests, Releases und Repo-Automationen.",
+    testPayload: {
+      event: "digital-world-dashboard.test",
+    },
+    linkedWorkflowIds: [],
+  },
+  {
+    id: "google-workspace",
+    name: "Google Workspace",
+    type: "office",
+    status: "planned",
+    enabled: false,
+    endpointUrl: "",
+    method: "POST",
+    authType: "bearer",
+    description: "Spaeter fuer Drive, Sheets, Docs und Kalender-Workflows.",
+    testPayload: {
+      event: "digital-world-dashboard.test",
+    },
+    linkedWorkflowIds: [],
+  },
+  {
+    id: "slack",
+    name: "Slack",
+    type: "communication",
+    status: "planned",
+    enabled: false,
+    endpointUrl: "",
+    method: "POST",
+    authType: "bearer",
+    description: "Spaeter fuer Benachrichtigungen, Freigaben und Team-Kommandos.",
+    testPayload: {
+      text: "Digital World KI Dashboard Connector-Test",
+    },
+    linkedWorkflowIds: [],
+  },
+  {
+    id: "webhook",
+    name: "Custom Webhook",
+    type: "automation",
+    status: "ready",
+    enabled: false,
+    endpointUrl: "",
+    method: "POST",
+    authType: "none",
+    description: "Freier HTTP-Connector fuer eigene Worker, APIs und interne Automationen.",
+    testPayload: {
+      prompt: "Teste diesen Custom Webhook.",
+      source: "connector-center",
+    },
+    linkedWorkflowIds: [],
+  },
+];
+
 const activitySeeds = [
   {
     id: "a1",
@@ -356,6 +453,7 @@ const defaultState = {
   activeAgents: ["automations", "research"],
   activity: activitySeeds,
   aiProviders: [],
+  connectors: connectorSeeds,
   metrics: null,
   settings: {
     providerMode: "backend",
@@ -382,6 +480,8 @@ let runTimers = new Map();
 let selectedRunId = null;
 let selectedPromptId = null;
 let promptEditorMode = "edit";
+let selectedConnectorId = "n8n";
+let connectorEditorMode = "edit";
 let selectedSetupProviderId = null;
 let providerDiagnostics = {};
 let providerModelOptions = {};
@@ -398,6 +498,7 @@ function loadState() {
       filters: { ...defaultState.filters, ...(saved.filters || {}) },
       prompts: saved.prompts?.length ? saved.prompts : promptSeeds,
       workflows: saved.workflows?.length ? saved.workflows : workflowSeeds,
+      connectors: saved.connectors?.length ? saved.connectors : connectorSeeds,
       activity: saved.activity?.length ? saved.activity : activitySeeds,
     };
   } catch {
@@ -453,6 +554,10 @@ function applyServerState(serverState) {
   state.runs = serverState.runs || state.runs;
   state.activity = serverState.activity || state.activity;
   state.aiProviders = serverState.aiProviders || state.aiProviders || [];
+  state.connectors = serverState.connectors || state.connectors || connectorSeeds;
+  if (!state.connectors.some((connector) => connector.id === selectedConnectorId)) {
+    selectedConnectorId = state.connectors[0]?.id || "n8n";
+  }
   state.metrics = serverState.metrics || state.metrics;
   if (serverState.settings) {
     state.settings.workspaceName = serverState.settings.workspaceName || state.settings.workspaceName;
@@ -515,6 +620,7 @@ function render() {
   renderAgentStudio();
   renderWorkflows();
   renderWorkflowRunner();
+  renderConnectorCenter();
   renderPrompts();
   renderActivity();
   renderSettings();
@@ -910,6 +1016,88 @@ function renderWorkflowLogs(workflow) {
         )
         .join("")
     : `<div class="empty-state">Noch keine Workflow-Responses.</div>`;
+}
+
+function renderConnectorCenter() {
+  const connectors = state.connectors || [];
+  if (!connectors.length) return;
+  if (
+    connectorEditorMode !== "new" &&
+    (!selectedConnectorId || !connectors.some((connector) => connector.id === selectedConnectorId))
+  ) {
+    selectedConnectorId = connectors[0]?.id || null;
+  }
+  $("#connectorList").innerHTML = connectors
+    .map((connector) => {
+      const status = getConnectorStatus(connector);
+      return `
+        <button class="connector-row ${selectedConnectorId === connector.id ? "is-selected" : ""}" type="button" data-connector-select="${connector.id}">
+          <div class="connector-title">
+            <strong>${escapeHtml(connector.name)}</strong>
+            <span>${escapeHtml(connector.type)} · ${escapeHtml(getConnectorEndpointLabel(connector))}</span>
+          </div>
+          <span class="connector-status ${status.className}">${escapeHtml(status.label)}</span>
+        </button>
+      `;
+    })
+    .join("");
+  renderConnectorEditor();
+}
+
+function renderConnectorEditor() {
+  if (connectorEditorMode === "new") return;
+  const connector = getSelectedConnector();
+  $("#connectorName").value = connector?.name || "";
+  $("#connectorType").value = connector?.type || "automation";
+  $("#connectorStatus").value = connector?.status || "optional";
+  $("#connectorMethod").value = connector?.method || "POST";
+  $("#connectorEndpointUrl").value = connector?.endpointUrl || "";
+  $("#connectorAuthType").value = connector?.authType || "none";
+  $("#connectorApiKey").value = "";
+  $("#connectorApiKey").placeholder = connector?.apiKeySet
+    ? "Key gespeichert. Leer lassen, um ihn zu behalten."
+    : "Optionaler API-Key";
+  $("#connectorEnabled").checked = Boolean(connector?.enabled);
+  $("#connectorDescription").value = connector?.description || "";
+  $("#connectorTestPayload").value = JSON.stringify(connector?.testPayload || {}, null, 2);
+  $("#connectorTestResult").textContent = formatConnectorTestResult(connector);
+}
+
+function getConnectorStatus(connector) {
+  const status = connector?.status || "optional";
+  if (status === "connected") return { label: "verbunden", className: "is-connected" };
+  if (status === "ready") return { label: "bereit", className: "is-ready" };
+  if (status === "error") return { label: "fehler", className: "is-error" };
+  if (connector?.enabled) return { label: "aktiv", className: "is-connected" };
+  if (status === "planned") return { label: "geplant", className: "is-planned" };
+  return { label: "optional", className: "is-optional" };
+}
+
+function getConnectorEndpointLabel(connector) {
+  if (!connector?.endpointUrl) return "kein Endpoint";
+  try {
+    const parsed = new URL(connector.endpointUrl);
+    return `${connector.method || "POST"} ${parsed.host}`;
+  } catch {
+    return `${connector.method || "POST"} konfiguriert`;
+  }
+}
+
+function formatConnectorTestResult(connector) {
+  if (!connector?.lastTestAt && !connector?.lastTestResult) {
+    return "Noch kein Connector-Test.";
+  }
+  return [
+    connector.lastTestStatus || "Test gespeichert",
+    connector.lastTestAt ? formatRunDate(connector.lastTestAt) : "",
+    connector.lastTestResult || "",
+  ]
+    .filter(Boolean)
+    .join("\n\n");
+}
+
+function getSelectedConnector() {
+  return (state.connectors || []).find((connector) => connector.id === selectedConnectorId) || null;
 }
 
 function buildWorkflowPayloadPreview(workflow) {
@@ -1406,6 +1594,167 @@ function sendSelectedPromptToWorkflow() {
   renderWorkflowPayloadPreview();
   $("#workflowRunnerPanel").scrollIntoView({ behavior: "smooth", block: "center" });
   toast("Prompt an Workflow Runner gesendet.");
+}
+
+function newConnectorEntry() {
+  connectorEditorMode = "new";
+  selectedConnectorId = null;
+  $("#connectorName").value = "";
+  $("#connectorType").value = "automation";
+  $("#connectorStatus").value = "optional";
+  $("#connectorMethod").value = "POST";
+  $("#connectorEndpointUrl").value = "";
+  $("#connectorAuthType").value = "none";
+  $("#connectorApiKey").value = "";
+  $("#connectorApiKey").placeholder = "Optionaler API-Key";
+  $("#connectorEnabled").checked = false;
+  $("#connectorDescription").value = "";
+  $("#connectorTestPayload").value = JSON.stringify(
+    {
+      prompt: "Teste diesen Connector aus dem Digital World KI Dashboard.",
+    },
+    null,
+    2,
+  );
+  $("#connectorTestResult").textContent = "Noch kein Connector-Test.";
+  $$(".connector-row.is-selected").forEach((row) => row.classList.remove("is-selected"));
+  $("#connectorName").focus();
+}
+
+function selectConnector(connectorId) {
+  connectorEditorMode = "edit";
+  selectedConnectorId = connectorId;
+  renderConnectorCenter();
+}
+
+function readConnectorPayload() {
+  const testPayloadText = $("#connectorTestPayload").value.trim();
+  let testPayload = {};
+  if (testPayloadText) {
+    try {
+      testPayload = JSON.parse(testPayloadText);
+    } catch {
+      toast("Testpayload ist kein gueltiges JSON.");
+      $("#connectorTestPayload").focus();
+      return null;
+    }
+  }
+  const payload = {
+    name: $("#connectorName").value.trim() || "Neuer Connector",
+    type: $("#connectorType").value,
+    status: $("#connectorStatus").value,
+    method: $("#connectorMethod").value,
+    endpointUrl: $("#connectorEndpointUrl").value.trim(),
+    authType: $("#connectorAuthType").value,
+    enabled: $("#connectorEnabled").checked,
+    description: $("#connectorDescription").value.trim(),
+    testPayload,
+  };
+  const apiKey = $("#connectorApiKey").value.trim();
+  if (apiKey) payload.apiKey = apiKey;
+  return payload;
+}
+
+async function saveConnectorEntry() {
+  const payload = readConnectorPayload();
+  if (!payload) return;
+  if (canUseBackend()) {
+    try {
+      const path = selectedConnectorId
+        ? `/api/connectors/${encodeURIComponent(selectedConnectorId)}`
+        : "/api/connectors";
+      const method = selectedConnectorId ? "PATCH" : "POST";
+      const connector = await apiRequest(path, {
+        method,
+        body: JSON.stringify(payload),
+      });
+      selectedConnectorId = connector.id;
+      connectorEditorMode = "edit";
+      await hydrateFromBackend();
+      toast("Connector gespeichert.");
+      return;
+    } catch (error) {
+      toast(`Backend-Fallback: ${error.message}`);
+    }
+  }
+
+  const { apiKey, ...publicPayload } = payload;
+  if (selectedConnectorId) {
+    state.connectors = (state.connectors || []).map((connector) =>
+      connector.id === selectedConnectorId
+        ? { ...connector, ...publicPayload, apiKeySet: Boolean(apiKey || connector.apiKeySet) }
+        : connector,
+    );
+  } else {
+    const connector = {
+      id: uid(),
+      ...publicPayload,
+      apiKeySet: Boolean(apiKey),
+      lastTestAt: null,
+      lastTestStatus: "",
+      lastTestResult: "",
+    };
+    selectedConnectorId = connector.id;
+    state.connectors = [connector, ...(state.connectors || [])];
+  }
+  connectorEditorMode = "edit";
+  persist();
+  renderConnectorCenter();
+  toast("Connector lokal gespeichert.");
+}
+
+async function testSelectedConnector() {
+  const connector = getSelectedConnector();
+  if (!connector) {
+    toast("Speichere den Connector zuerst.");
+    return;
+  }
+  const payload = readConnectorPayload();
+  if (!payload) return;
+  if (!payload.endpointUrl) {
+    toast("Endpoint URL fehlt.");
+    $("#connectorEndpointUrl").focus();
+    return;
+  }
+  if (!canUseBackend()) {
+    toast("Connector-Tests brauchen das Dashboard Backend.");
+    return;
+  }
+
+  try {
+    await saveConnectorEntry();
+    const result = await apiRequest(`/api/connectors/${encodeURIComponent(selectedConnectorId)}/test`, {
+      method: "POST",
+      body: JSON.stringify({ payload: payload.testPayload }),
+    });
+    await hydrateFromBackend();
+    $("#connectorTestResult").textContent = [
+      result.ok ? "Connector erreichbar." : "Connector-Test fehlgeschlagen.",
+      result.status ? `HTTP ${result.status}` : result.statusText || "",
+      result.body || "",
+    ]
+      .filter(Boolean)
+      .join("\n\n");
+    toast(result.ok ? "Connector-Test erfolgreich." : "Connector-Test fehlgeschlagen.");
+  } catch (error) {
+    $("#connectorTestResult").textContent = error.message;
+    toast(`Connector-Test fehlgeschlagen: ${error.message}`);
+  }
+}
+
+async function applyConnectorToWorkflow() {
+  const connector = getSelectedConnector();
+  if (!connector?.endpointUrl) {
+    toast("Dieser Connector hat noch keinen Endpoint.");
+    return;
+  }
+  $("#workflowWebhookUrl").value = connector.endpointUrl;
+  $("#workflowTrigger").value = connector.name;
+  $("#workflowPayload").value = JSON.stringify(connector.testPayload || { prompt: `Starte ${connector.name}.` }, null, 2);
+  renderWorkflowPayloadPreview();
+  $("#workflowRunnerPanel").scrollIntoView({ behavior: "smooth", block: "center" });
+  await saveWorkflowProfile();
+  toast("Connector im aktuellen Workflow hinterlegt.");
 }
 
 async function copyPrompt() {
@@ -2500,6 +2849,7 @@ function scrollToTarget(navId) {
     top: document.body,
     command: $(".command-center"),
     workflows: $("#workflowList"),
+    connectors: $("#connectorCenterPanel"),
     vault: $("#promptList"),
     agents: $("#agentList"),
   };
@@ -2833,6 +3183,12 @@ function bindEvents() {
       return;
     }
 
+    const connectorSelect = event.target.closest("[data-connector-select]");
+    if (connectorSelect) {
+      selectConnector(connectorSelect.dataset.connectorSelect);
+      return;
+    }
+
     const provider = event.target.closest("[data-provider-select]");
     if (provider) {
       selectedSetupProviderId = provider.dataset.providerSelect;
@@ -2870,6 +3226,10 @@ function bindEvents() {
   $("#workflowTrigger").addEventListener("input", renderWorkflowPayloadPreview);
   $("#workflowOwner").addEventListener("input", renderWorkflowPayloadPreview);
   $("#newWorkflow").addEventListener("click", addWorkflow);
+  $("#newConnector").addEventListener("click", newConnectorEntry);
+  $("#saveConnector").addEventListener("click", saveConnectorEntry);
+  $("#testConnector").addEventListener("click", testSelectedConnector);
+  $("#applyConnectorToWorkflow").addEventListener("click", applyConnectorToWorkflow);
   $("#seedPrompts").addEventListener("click", seedPrompts);
   $("#newPromptVault").addEventListener("click", newPromptVaultEntry);
   $("#savePromptVault").addEventListener("click", savePromptVault);

@@ -88,6 +88,80 @@ function createStore(options = {}) {
       const data = await readData();
       return sanitizeAiProviders(data.aiProviders);
     },
+    async listConnectors() {
+      const data = await readData();
+      return sanitizeConnectors(data.connectors);
+    },
+    async addConnector(payload) {
+      return update((data) => {
+        const connector = normalizeConnector({
+          id: uid("connector"),
+          name: payload.name,
+          type: payload.type,
+          status: payload.status || "optional",
+          enabled: Boolean(payload.enabled),
+          endpointUrl: payload.endpointUrl,
+          method: payload.method,
+          authType: payload.authType,
+          apiKey: payload.apiKey,
+          description: payload.description,
+          testPayload: payload.testPayload,
+          linkedWorkflowIds: payload.linkedWorkflowIds,
+        });
+        if (!connector.name) throw createHttpError(400, "Connector name is required");
+        if (connector.endpointUrl) connector.endpointUrl = cleanHttpUrl(connector.endpointUrl, "Connector endpoint");
+        data.connectors.unshift(connector);
+        addActivity(data, "Connector angelegt", connector.name, "#18d4c5");
+        return sanitizeConnector(connector);
+      });
+    },
+    async patchConnector(id, patch) {
+      return update((data) => {
+        const connector = data.connectors.find((item) => item.id === id);
+        if (!connector) throw createHttpError(404, "Connector not found");
+        if ("name" in patch) connector.name = clean(patch.name) || connector.name;
+        if ("type" in patch) connector.type = clean(patch.type) || connector.type;
+        if ("status" in patch) connector.status = clean(patch.status || "optional");
+        if ("enabled" in patch) connector.enabled = Boolean(patch.enabled);
+        if ("endpointUrl" in patch) {
+          connector.endpointUrl = clean(patch.endpointUrl)
+            ? cleanHttpUrl(patch.endpointUrl, "Connector endpoint")
+            : "";
+        }
+        if ("method" in patch) connector.method = normalizeConnectorMethod(patch.method);
+        if ("authType" in patch) connector.authType = normalizeAuthType(patch.authType);
+        if ("apiKey" in patch && clean(patch.apiKey)) connector.apiKey = clean(patch.apiKey);
+        if (patch.clearApiKey) connector.apiKey = "";
+        if ("description" in patch) connector.description = clean(patch.description);
+        if ("testPayload" in patch) connector.testPayload = normalizeConnectorPayload(patch.testPayload);
+        if ("linkedWorkflowIds" in patch) connector.linkedWorkflowIds = normalizeSteps(patch.linkedWorkflowIds);
+        addActivity(data, "Connector aktualisiert", connector.name, connector.enabled ? "#75d66b" : "#aaa9a4");
+        return sanitizeConnector(connector);
+      });
+    },
+    async testConnector(id, payload = {}) {
+      return update(async (data) => {
+        const connector = data.connectors.find((item) => item.id === id);
+        if (!connector) throw createHttpError(404, "Connector not found");
+        if (!connector.endpointUrl) throw createHttpError(400, "Connector endpoint is required");
+        const result = await callConnectorEndpoint(connector, payload);
+        connector.lastTestAt = new Date().toISOString();
+        connector.lastTestStatus = result.ok
+          ? `OK${result.status ? ` HTTP ${result.status}` : ""}`
+          : `Fehler${result.status ? ` HTTP ${result.status}` : ""}`;
+        connector.lastTestResult = result.body || result.statusText || "";
+        connector.status = result.ok ? "connected" : "error";
+        if (result.ok) connector.enabled = true;
+        addActivity(data, result.ok ? "Connector-Test erfolgreich" : "Connector-Test fehlgeschlagen", connector.name, result.ok ? "#75d66b" : "#ff6a4b");
+        return {
+          ok: result.ok,
+          status: result.status,
+          statusText: result.statusText,
+          body: result.body,
+          connector: sanitizeConnector(connector),
+        };
+      });
+    },
     async saveAiProvider(providerId, patch) {
       return update((data) => {
         data.aiProviders = updateProvider(data.aiProviders, providerId, patch);
@@ -434,7 +508,12 @@ function normalizeWorkflowLog(log) {
 }
 
 function normalizeConnectors(input, seedConnectors) {
-  const incoming = Array.isArray(input) ? input : seedConnectors;
+  const deprecatedEmptyConnectorIds = new Set(["ollama", "openai-compatible"]);
+  const incoming = (Array.isArray(input) ? input : seedConnectors).filter((connector) => {
+    const id = clean(connector.id);
+    if (!deprecatedEmptyConnectorIds.has(id)) return true;
+    return Boolean(connector.enabled || connector.endpointUrl || connector.apiKey || connector.apiKeySet);
+  });
   const seedById = new Map(seedConnectors.map((connector) => [connector.id, connector]));
   const seen = new Set();
   const normalized = incoming.map((connector) => {
@@ -465,7 +544,33 @@ function normalizeConnector(connector, seed = {}) {
     type: clean(connector.type || seed.type || "integration"),
     status,
     description,
+    enabled: Boolean(connector.enabled ?? seed.enabled),
+    endpointUrl: clean(connector.endpointUrl || connector.webhookUrl || seed.endpointUrl || ""),
+    method: normalizeConnectorMethod(connector.method || seed.method),
+    authType: normalizeAuthType(connector.authType || seed.authType),
+    apiKey: clean(connector.apiKey || ""),
+    apiKeySet: Boolean(connector.apiKey || connector.apiKeySet),
+    testPayload: normalizeConnectorPayload(connector.testPayload || seed.testPayload),
+    linkedWorkflowIds: normalizeSteps(connector.linkedWorkflowIds || seed.linkedWorkflowIds || []),
+    lastTestAt: connector.lastTestAt || null,
+    lastTestStatus: clean(connector.lastTestStatus || ""),
+    lastTestResult: clip(connector.lastTestResult || "", 1600),
   };
+}
+
+function normalizeConnectorMethod(value) {
+  const method = clean(value || "POST").toUpperCase();
+  return ["GET", "POST"].includes(method) ? method : "POST";
+}
+
+function normalizeAuthType(value) {
+  const authType = clean(value || "none").toLowerCase();
+  return ["none", "bearer", "api-key"].includes(authType) ? authType : "none";
+}
+
+function normalizeConnectorPayload(value) {
+  if (value && typeof value === "object" && !Array.isArray(value)) return value;
+  return {};
 }
 
 function normalizeProviderRouting(value) {
@@ -495,6 +600,19 @@ function sanitizeData(data) {
   return {
     ...data,
     aiProviders: sanitizeAiProviders(data.aiProviders),
+    connectors: sanitizeConnectors(data.connectors),
+  };
+}
+
+function sanitizeConnectors(connectors = []) {
+  return connectors.map(sanitizeConnector);
+}
+
+function sanitizeConnector(connector) {
+  const { apiKey, ...publicConnector } = connector;
+  return {
+    ...publicConnector,
+    apiKeySet: Boolean(apiKey || connector.apiKeySet),
   };
 }
 
@@ -551,19 +669,22 @@ function initialsFromName(value) {
 function cleanWebhookUrl(value) {
   const url = clean(value);
   if (!url) return "";
-  validateWebhookUrl(url);
-  return url;
+  return cleanHttpUrl(url, "Webhook URL");
 }
 
 function validateWebhookUrl(value) {
+  return cleanHttpUrl(value, "Webhook URL");
+}
+
+function cleanHttpUrl(value, label = "URL") {
   let parsed;
   try {
-    parsed = new URL(value);
+    parsed = new URL(clean(value));
   } catch {
-    throw createHttpError(400, "Webhook URL must be a valid URL");
+    throw createHttpError(400, `${label} must be a valid URL`);
   }
   if (!["http:", "https:"].includes(parsed.protocol)) {
-    throw createHttpError(400, "Webhook URL must use http or https");
+    throw createHttpError(400, `${label} must use http or https`);
   }
   return parsed.toString();
 }
@@ -640,6 +761,66 @@ async function callWorkflowWebhook(webhookUrl, payload) {
         error.name === "AbortError"
           ? "Webhook-Timeout nach 12 Sekunden."
           : `Webhook-Fehler: ${error.message}`,
+    };
+  } finally {
+    clearTimeout(timeout);
+  }
+}
+
+async function callConnectorEndpoint(connector, payload = {}) {
+  const url = cleanHttpUrl(connector.endpointUrl, "Connector endpoint");
+  const method = normalizeConnectorMethod(connector.method);
+  const bodyPayload = normalizeConnectorPayload(payload.payload) || {};
+  const testPayload = Object.keys(bodyPayload).length ? bodyPayload : normalizeConnectorPayload(connector.testPayload);
+  const headers = {
+    "Content-Type": "application/json",
+    "User-Agent": "Digital-World-KI-Dashboard/0.2",
+  };
+  if (connector.authType === "bearer" && connector.apiKey) {
+    headers.Authorization = `Bearer ${connector.apiKey}`;
+  }
+  if (connector.authType === "api-key" && connector.apiKey) {
+    headers["X-API-Key"] = connector.apiKey;
+  }
+
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), 12_000);
+  try {
+    const response = await fetch(url, {
+      method,
+      headers,
+      body:
+        method === "POST"
+          ? JSON.stringify({
+              source: "digital-world-ki-dashboard",
+              event: "connector.test",
+              createdAt: new Date().toISOString(),
+              connector: {
+                id: connector.id,
+                name: connector.name,
+                type: connector.type,
+              },
+              payload: testPayload,
+            })
+          : undefined,
+      signal: controller.signal,
+    });
+    const text = await response.text();
+    return {
+      ok: response.ok,
+      status: response.status,
+      statusText: response.statusText,
+      body: clip(formatWebhookBody(text, response.headers.get("content-type")), 4000),
+    };
+  } catch (error) {
+    return {
+      ok: false,
+      status: 0,
+      statusText: error.name === "AbortError" ? "timeout" : "request failed",
+      body:
+        error.name === "AbortError"
+          ? "Connector-Timeout nach 12 Sekunden."
+          : `Connector-Fehler: ${error.message}`,
     };
   } finally {
     clearTimeout(timeout);

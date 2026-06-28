@@ -152,6 +152,102 @@ const seedActivity = [
   },
 ];
 
+const seedConnectors = [
+  {
+    id: "n8n",
+    name: "n8n Webhook",
+    type: "automation",
+    status: "optional",
+    enabled: false,
+    endpointUrl: "",
+    method: "POST",
+    authType: "none",
+    description: "Eigene n8n-Workflows per Webhook starten und testen.",
+    testPayload: {
+      prompt: "Teste den n8n-Workflow aus dem Digital World KI Dashboard.",
+      source: "connector-center",
+    },
+    linkedWorkflowIds: [],
+  },
+  {
+    id: "make",
+    name: "Make Webhook",
+    type: "automation",
+    status: "optional",
+    enabled: false,
+    endpointUrl: "",
+    method: "POST",
+    authType: "none",
+    description: "Make-Szenarien ueber Custom Webhooks als KI-Automation nutzen.",
+    testPayload: {
+      prompt: "Teste das Make-Szenario aus dem Digital World KI Dashboard.",
+      source: "connector-center",
+    },
+    linkedWorkflowIds: [],
+  },
+  {
+    id: "github",
+    name: "GitHub",
+    type: "devops",
+    status: "planned",
+    enabled: false,
+    endpointUrl: "",
+    method: "POST",
+    authType: "bearer",
+    description: "Spaeter fuer Issues, Pull Requests, Releases und Repo-Automationen.",
+    testPayload: {
+      event: "digital-world-dashboard.test",
+    },
+    linkedWorkflowIds: [],
+  },
+  {
+    id: "google-workspace",
+    name: "Google Workspace",
+    type: "office",
+    status: "planned",
+    enabled: false,
+    endpointUrl: "",
+    method: "POST",
+    authType: "bearer",
+    description: "Spaeter fuer Drive, Sheets, Docs und Kalender-Workflows.",
+    testPayload: {
+      event: "digital-world-dashboard.test",
+    },
+    linkedWorkflowIds: [],
+  },
+  {
+    id: "slack",
+    name: "Slack",
+    type: "communication",
+    status: "planned",
+    enabled: false,
+    endpointUrl: "",
+    method: "POST",
+    authType: "bearer",
+    description: "Spaeter fuer Benachrichtigungen, Freigaben und Team-Kommandos.",
+    testPayload: {
+      text: "Digital World KI Dashboard Connector-Test",
+    },
+    linkedWorkflowIds: [],
+  },
+  {
+    id: "webhook",
+    name: "Custom Webhook",
+    type: "automation",
+    status: "ready",
+    enabled: false,
+    endpointUrl: "",
+    method: "POST",
+    authType: "none",
+    description: "Freier HTTP-Connector fuer eigene Worker, APIs und interne Automationen.",
+    testPayload: {
+      prompt: "Teste diesen Custom Webhook.",
+      source: "connector-center",
+    },
+    linkedWorkflowIds: [],
+  },
+];
+
 function createSeedData() {
   return {
     version: 2,
@@ -169,29 +265,7 @@ function createSeedData() {
     runs: [],
     activity: structuredClone(seedActivity),
     aiProviders: createDefaultAiProviders(),
-    connectors: [
-      {
-        id: "ollama",
-        name: "Ollama lokal",
-        type: "llm",
-        status: "optional",
-        description: "Lokaler LLM-Endpunkt fuer private Tests.",
-      },
-      {
-        id: "openai-compatible",
-        name: "OpenAI-kompatibel",
-        type: "llm",
-        status: "optional",
-        description: "Serverseitige API-Bridge fuer gehostete Modelle.",
-      },
-      {
-        id: "webhook",
-        name: "Webhook Runner",
-        type: "automation",
-        status: "ready",
-        description: "Startet n8n, Make oder eigene Worker per JSON-Webhook.",
-      },
-    ],
+    connectors: structuredClone(seedConnectors),
   };
 }
 
@@ -200,4 +274,5 @@ module.exports = {
   seedAgents,
   seedWorkflows,
   seedPrompts,
+  seedConnectors,
 };

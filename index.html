@@ -316,6 +316,98 @@
             </div>
           </article>
 
+          <article class="panel panel-wide" id="connectorCenterPanel">
+            <div class="panel-heading">
+              <div>
+                <p class="panel-kicker">Integrationen</p>
+                <h2>Connector Center</h2>
+              </div>
+              <div class="panel-actions">
+                <button class="subtle-button" id="newConnector" type="button">Neu</button>
+                <button class="subtle-button" id="testConnector" type="button">Testen</button>
+                <button class="subtle-button" id="saveConnector" type="button">Speichern</button>
+              </div>
+            </div>
+            <div class="connector-center">
+              <div class="connector-list" id="connectorList"></div>
+              <div class="connector-editor">
+                <div class="form-grid-two">
+                  <label>
+                    Name
+                    <input id="connectorName" type="text" placeholder="n8n Webhook" />
+                  </label>
+                  <label>
+                    Typ
+                    <select id="connectorType">
+                      <option value="automation">Automation</option>
+                      <option value="devops">DevOps</option>
+                      <option value="office">Office</option>
+                      <option value="communication">Kommunikation</option>
+                      <option value="data">Daten</option>
+                      <option value="custom">Custom</option>
+                    </select>
+                  </label>
+                </div>
+                <div class="form-grid-two">
+                  <label>
+                    Status
+                    <select id="connectorStatus">
+                      <option value="planned">Geplant</option>
+                      <option value="optional">Optional</option>
+                      <option value="ready">Bereit</option>
+                      <option value="connected">Verbunden</option>
+                      <option value="error">Fehler</option>
+                    </select>
+                  </label>
+                  <label>
+                    Methode
+                    <select id="connectorMethod">
+                      <option value="POST">POST</option>
+                      <option value="GET">GET</option>
+                    </select>
+                  </label>
+                </div>
+                <label>
+                  Endpoint URL
+                  <input id="connectorEndpointUrl" type="url" placeholder="https://hook.eu1.make.com/... oder http://localhost:5678/webhook/..." />
+                </label>
+                <div class="form-grid-two">
+                  <label>
+                    Auth
+                    <select id="connectorAuthType">
+                      <option value="none">Keine</option>
+                      <option value="bearer">Bearer Token</option>
+                      <option value="api-key">X-API-Key</option>
+                    </select>
+                  </label>
+                  <label>
+                    API-Key
+                    <input id="connectorApiKey" type="password" placeholder="Leer lassen, um bestehenden Key zu behalten" />
+                  </label>
+                </div>
+                <label class="check-label">
+                  <input id="connectorEnabled" type="checkbox" />
+                  <span>Connector aktiv</span>
+                </label>
+                <label>
+                  Beschreibung
+                  <textarea id="connectorDescription" rows="3" placeholder="Wofür ist dieser Connector gedacht?"></textarea>
+                </label>
+                <label>
+                  Testpayload
+                  <textarea id="connectorTestPayload" rows="5" placeholder='{"prompt":"Teste diesen Connector."}'></textarea>
+                </label>
+                <div class="connector-test-box">
+                  <div class="workflow-box-head">
+                    <strong>Letzter Test</strong>
+                    <button class="subtle-button" id="applyConnectorToWorkflow" type="button">In Workflow nutzen</button>
+                  </div>
+                  <pre id="connectorTestResult">Noch kein Connector-Test.</pre>
+                </div>
+              </div>
+            </div>
+          </article>
+
           <article class="panel">
             <div class="panel-heading">
               <div>

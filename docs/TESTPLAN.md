@@ -58,7 +58,15 @@ npm run smoke
 
 11. `Export` laden, danach ueber Backend Drawer wieder importieren.
 
-12. `KI-Setup` oeffnen und pruefen:
+12. Connector Center pruefen:
+
+   - Connector auswaehlen und Endpoint URL eintragen.
+   - Optional Bearer- oder API-Key setzen und speichern.
+   - `Testen` klicken und Status/Auszug pruefen.
+   - `In Workflow nutzen` klicken und pruefen, ob der aktuelle Workflow die URL uebernimmt.
+   - Export enthaelt keinen Klartext-Connector-Key.
+
+13. `KI-Setup` oeffnen und pruefen:
 
    - Provider-Karten werden angezeigt.
    - Provider aktivieren, Modell/Base URL aendern und speichern.
@@ -68,7 +76,7 @@ npm run smoke
    - `Auto zuordnen` pruefen und danach speichern.
    - Export enthaelt keinen Klartext-Key.
 
-13. Mobile Breite pruefen:
+14. Mobile Breite pruefen:
 
     - 390 px
     - 768 px

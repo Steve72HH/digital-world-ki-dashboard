@@ -18,6 +18,7 @@ Viele KI-Dashboards sind im Kern nur ein Buendel aus Chat, Prompt-Bibliothek, Ag
 - KI-Auftraege mit persistenter Run-Historie
 - Prompt Vault mit Export/Import
 - Workflow-Verwaltung mit lokalem Testlauf und Webhook Runner fuer n8n, Make oder eigene Worker
+- Connector Center fuer n8n, Make, GitHub, Slack, Google Workspace und eigene Webhooks
 - KI-Mitarbeiter aktivieren/pausieren
 - Agent Studio mit Provider, Modell, Systembriefing und Testlauf pro Agent
 - Aktivitaetsfeed und Kennzahlen
@@ -155,6 +156,10 @@ Wichtige Endpunkte:
 - `GET /api/health`
 - `GET /api/state`
 - `GET /api/ai-providers`
+- `GET /api/connectors`
+- `POST /api/connectors`
+- `PATCH /api/connectors/:id`
+- `POST /api/connectors/:id/test`
 - `PATCH /api/ai-providers/:id`
 - `POST /api/ai-providers/:id/test`
 - `PATCH /api/settings`

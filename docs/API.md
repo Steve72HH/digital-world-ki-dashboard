@@ -25,9 +25,11 @@ Liefert den kompletten Workspace-Zustand fuer das Frontend:
 - `runs`
 - `activity`
 - `aiProviders`
+- `connectors`
 - `metrics`
 
 `aiProviders` enthaelt keine Klartext-Keys. Stattdessen werden `apiKeySet` und `apiKeyMasked` geliefert.
+`connectors` enthaelt ebenfalls keine Klartext-Keys. Stattdessen wird `apiKeySet` geliefert.
 
 ## KI-Setup
 
@@ -74,6 +76,48 @@ Aktualisiert globale Workspace- und Routing-Einstellungen.
 ```
 
 `providerRouting` ist optional. Fehlt ein Tool-Eintrag oder ist er leer, nutzt das Dashboard `defaultProviderId`.
+
+## Connector Center
+
+### `GET /api/connectors`
+
+Liefert alle Integrationen fuer Automation, DevOps, Office und Kommunikation. Klartext-Keys werden nicht ausgegeben.
+
+### `POST /api/connectors`
+
+Legt einen eigenen Connector an.
+
+```json
+{
+  "name": "Eigener Worker",
+  "type": "automation",
+  "endpointUrl": "https://example.com/webhook",
+  "method": "POST",
+  "authType": "bearer",
+  "apiKey": "secret",
+  "testPayload": {
+    "prompt": "Connector Smoke"
+  }
+}
+```
+
+### `PATCH /api/connectors/:id`
+
+Aktualisiert Connector-Felder wie `enabled`, `endpointUrl`, `method`, `authType`, `apiKey`, `description` oder `testPayload`.
+
+### `POST /api/connectors/:id/test`
+
+Sendet einen Testcall an den Connector. Bei `POST` wird ein JSON-Payload mit `source`, `event`, `connector` und `payload` gesendet.
+
+```json
+{
+  "payload": {
+    "prompt": "Connector Smoke"
+  }
+}
+```
+
+Keys bleiben serverseitig. In Exporten wird nur `apiKeySet` ausgegeben.
 
 ## KI-Auftraege
 

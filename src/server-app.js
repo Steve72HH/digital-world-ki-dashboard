@@ -111,6 +111,26 @@ async function handleApi({ req, res, url, store, ai, config }) {
     return;
   }
 
+  if (method === "GET" && pathName === "/api/connectors") {
+    sendJson(res, 200, await store.listConnectors());
+    return;
+  }
+
+  if (method === "POST" && pathName === "/api/connectors") {
+    sendJson(res, 201, await store.addConnector(await readJson(req)));
+    return;
+  }
+
+  if (parts[1] === "connectors" && parts[2] && method === "PATCH") {
+    sendJson(res, 200, await store.patchConnector(parts[2], await readJson(req)));
+    return;
+  }
+
+  if (parts[1] === "connectors" && parts[2] && parts[3] === "test" && method === "POST") {
+    sendJson(res, 200, await store.testConnector(parts[2], await readJson(req)));
+    return;
+  }
+
   if (parts[1] === "ai-providers" && parts[2] && parts[3] === "discover" && method === "POST") {
     const body = await readJson(req);
     const providerConfig = await store.getEffectiveAiConfig(config.ai, parts[2]);

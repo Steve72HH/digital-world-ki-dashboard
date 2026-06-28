@@ -8,6 +8,7 @@
 - Provider-Routing pro Werkzeug
 - Agent Studio
 - Workflow Runner Light mit JSON-Webhooks
+- Connector Center mit Webhook/API-Key-Testlauf
 - JSON-Dateispeicher, Docker und Tests
 
 ## Naechste Prioritaet
@@ -16,7 +17,7 @@
 - verschluesselte Secret-Ablage
 - Multi-Workspace-Struktur
 - Datei-Upload und Wissensspeicher
-- Workflow-Retry, Header und Zeitplaene
+- Workflow-Retry, eigene Header und Zeitplaene
 - Kostenlimits und Freigabe-Workflows
 
 ## Spaeter

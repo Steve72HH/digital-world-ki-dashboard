@@ -38,7 +38,7 @@ async function withWebhookReceiver(run, options = {}) {
     });
     req.on("end", () => {
       const body = raw ? JSON.parse(raw) : {};
-      requests.push({ method: req.method, url: req.url, body });
+      requests.push({ method: req.method, url: req.url, headers: req.headers, body });
       const status = options.status || 200;
       res.writeHead(status, { "Content-Type": "application/json" });
       res.end(JSON.stringify(options.body || { ok: status < 400, receivedWorkflow: body.workflow?.id }));
@@ -109,6 +109,7 @@ test("state endpoint returns seeded workspace data", async () => {
     assert.equal(data.version, 2);
     assert.ok(data.prompts.length >= 3);
     assert.ok(data.workflows.length >= 3);
+    assert.ok(data.connectors.length >= 3);
     assert.ok(data.agents.some((agent) => agent.active));
     assert.equal(typeof data.metrics.activeWorkflows, "number");
   });
@@ -329,6 +330,55 @@ test("workflow runner stores webhook errors per workflow", async () => {
       },
       { status: 500, body: { error: "boom" } },
     );
+  });
+});
+
+test("connector setup stores masked keys and performs test calls", async () => {
+  await withTestServer(async ({ baseUrl }) => {
+    await withWebhookReceiver(async ({ url, requests }) => {
+      const patchResponse = await fetch(`${baseUrl}/api/connectors/webhook`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          enabled: true,
+          endpointUrl: url,
+          method: "POST",
+          authType: "bearer",
+          apiKey: "secret-connector-key",
+          testPayload: { prompt: "Connector Smoke" },
+        }),
+      });
+      assert.equal(patchResponse.status, 200);
+      const connector = await patchResponse.json();
+      assert.equal(connector.apiKey, undefined);
+      assert.equal(connector.apiKeySet, true);
+      assert.equal(connector.endpointUrl, url);
+
+      const state = await (await fetch(`${baseUrl}/api/state`)).json();
+      const publicConnector = state.connectors.find((item) => item.id === "webhook");
+      assert.equal(publicConnector.apiKey, undefined);
+      assert.equal(publicConnector.apiKeySet, true);
+
+      const testResponse = await fetch(`${baseUrl}/api/connectors/webhook/test`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ payload: { prompt: "Connector Smoke" } }),
+      });
+      assert.equal(testResponse.status, 200);
+      const result = await testResponse.json();
+      assert.equal(result.ok, true);
+      assert.equal(result.connector.status, "connected");
+      assert.equal(result.connector.enabled, true);
+      assert.equal(requests.length, 1);
+      assert.equal(requests[0].headers.authorization, "Bearer secret-connector-key");
+      assert.equal(requests[0].body.event, "connector.test");
+      assert.equal(requests[0].body.payload.prompt, "Connector Smoke");
+
+      const exported = await (await fetch(`${baseUrl}/api/export`)).json();
+      const exportedConnector = exported.connectors.find((item) => item.id === "webhook");
+      assert.equal(exportedConnector.apiKey, undefined);
+      assert.equal(exportedConnector.apiKeySet, true);
+    });
   });
 });
 
