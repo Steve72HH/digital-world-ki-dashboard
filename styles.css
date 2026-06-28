@@ -650,6 +650,64 @@ svg {
   gap: 10px;
 }
 
+.run-filter-bar,
+.prompt-filter-bar {
+  display: grid;
+  grid-template-columns: minmax(160px, 1fr) minmax(130px, 0.65fr) minmax(130px, 0.65fr);
+  gap: 9px;
+  margin-bottom: 12px;
+}
+
+.prompt-filter-bar {
+  grid-template-columns: minmax(160px, 1fr) minmax(130px, 0.75fr);
+}
+
+.run-filter-bar input,
+.run-filter-bar select,
+.prompt-filter-bar input,
+.prompt-filter-bar select,
+.prompt-editor input,
+.prompt-editor textarea {
+  width: 100%;
+  min-height: 38px;
+  padding: 0 10px;
+  color: var(--text);
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  outline: 0;
+  background: rgba(255, 255, 255, 0.05);
+}
+
+.prompt-editor {
+  display: grid;
+  gap: 10px;
+  margin-top: 12px;
+  padding-top: 12px;
+  border-top: 1px solid var(--line-soft);
+}
+
+.prompt-editor label {
+  display: grid;
+  gap: 7px;
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 800;
+  text-transform: uppercase;
+}
+
+.prompt-editor textarea {
+  padding: 10px;
+  resize: vertical;
+  line-height: 1.45;
+}
+
+.prompt-editor-actions {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 8px;
+}
+
 #runsPanel .run-list {
   max-height: 560px;
   overflow: auto;
@@ -773,7 +831,9 @@ svg {
 
 .run-actions {
   display: flex;
+  flex-wrap: wrap;
   justify-content: flex-end;
+  gap: 8px;
   margin-top: 10px;
 }
 
@@ -1089,8 +1149,14 @@ svg {
   cursor: pointer;
 }
 
-.prompt-row:hover strong {
+.prompt-row:hover strong,
+.prompt-row.is-selected strong {
   color: var(--cyan);
+}
+
+.prompt-row.is-selected {
+  border-color: rgba(24, 212, 197, 0.36);
+  background: rgba(24, 212, 197, 0.05);
 }
 
 .activity-row {
@@ -1416,7 +1482,8 @@ svg {
   text-transform: none !important;
 }
 
-.settings-form .check-label input {
+.settings-form .check-label input,
+.prompt-editor .check-label input {
   width: 18px;
   min-height: 18px;
   padding: 0;
@@ -1755,6 +1822,11 @@ svg {
   }
 
   .routing-row {
+    grid-template-columns: 1fr;
+  }
+
+  .run-filter-bar,
+  .prompt-filter-bar {
     grid-template-columns: 1fr;
   }
 

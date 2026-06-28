@@ -122,15 +122,62 @@ test("prompt creation is persisted", async () => {
       body: JSON.stringify({
         title: "Test Prompt",
         text: "Bitte baue eine Testautomation.",
+        category: "QA",
+        tags: ["test", "automation"],
+        favorite: true,
       }),
     });
     assert.equal(response.status, 201);
     const created = await response.json();
     assert.equal(created.title, "Test Prompt");
+    assert.equal(created.category, "QA");
+    assert.deepEqual(created.tags, ["test", "automation"]);
+    assert.equal(created.favorite, true);
 
     const data = await store.readData();
     assert.equal(data.prompts[0].id, created.id);
     assert.equal(data.prompts[0].text, "Bitte baue eine Testautomation.");
+    assert.equal(data.prompts[0].category, "QA");
+    assert.deepEqual(data.prompts[0].tags, ["test", "automation"]);
+    assert.equal(data.prompts[0].favorite, true);
+  });
+});
+
+test("prompt update changes vault metadata", async () => {
+  await withTestServer(async ({ baseUrl, store }) => {
+    const created = await (
+      await fetch(`${baseUrl}/api/prompts`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          title: "Alter Prompt",
+          text: "Bitte analysiere den alten Prozess.",
+        }),
+      })
+    ).json();
+
+    const response = await fetch(`${baseUrl}/api/prompts/${created.id}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        title: "Aktualisierter Prompt",
+        text: "Bitte analysiere den neuen Prozess.",
+        category: "Research",
+        tags: ["research", "briefing"],
+        favorite: true,
+      }),
+    });
+    assert.equal(response.status, 200);
+    const updated = await response.json();
+    assert.equal(updated.title, "Aktualisierter Prompt");
+    assert.equal(updated.text, "Bitte analysiere den neuen Prozess.");
+    assert.equal(updated.category, "Research");
+    assert.deepEqual(updated.tags, ["research", "briefing"]);
+    assert.equal(updated.favorite, true);
+
+    const data = await store.readData();
+    assert.equal(data.prompts[0].title, "Aktualisierter Prompt");
+    assert.equal(data.prompts[0].category, "Research");
   });
 });
 

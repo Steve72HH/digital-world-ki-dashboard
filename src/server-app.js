@@ -188,6 +188,11 @@ async function handleApi({ req, res, url, store, ai, config }) {
     return;
   }
 
+  if (parts[1] === "prompts" && parts[2] && method === "PATCH") {
+    sendJson(res, 200, await store.updatePrompt(parts[2], await readJson(req)));
+    return;
+  }
+
   if (parts[1] === "prompts" && parts[2] && method === "DELETE") {
     sendJson(res, 200, await store.deletePrompt(parts[2]));
     return;

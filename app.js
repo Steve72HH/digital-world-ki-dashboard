@@ -303,16 +303,25 @@ const promptSeeds = [
     id: "p1",
     title: "Automation Blueprint",
     text: "Erstelle fuer diesen Prozess einen Automationsplan mit Trigger, Datenquellen, Fehlerfaellen, Tools und erstem MVP.",
+    category: "Automation",
+    tags: ["automation", "mvp"],
+    favorite: true,
   },
   {
     id: "p2",
     title: "Executive Briefing",
     text: "Fasse dieses Thema fuer eine Geschaeftsentscheidung zusammen: Kontext, Optionen, Risiko, Empfehlung, naechste Schritte.",
+    category: "Strategie",
+    tags: ["strategy", "briefing"],
+    favorite: false,
   },
   {
     id: "p3",
     title: "Content Engine",
     text: "Baue aus dieser Idee eine Content-Serie mit Positionierung, Hook-Varianten, Formaten und Produktionsworkflow.",
+    category: "Content",
+    tags: ["content", "workflow"],
+    favorite: true,
   },
 ];
 
@@ -356,6 +365,13 @@ const defaultState = {
     defaultProviderId: "",
     providerRouting: {},
   },
+  filters: {
+    runSearch: "",
+    runTool: "",
+    runProvider: "",
+    promptSearch: "",
+    promptCategory: "",
+  },
 };
 
 const $ = (selector) => document.querySelector(selector);
@@ -364,6 +380,8 @@ const $$ = (selector) => Array.from(document.querySelectorAll(selector));
 let state = loadState();
 let runTimers = new Map();
 let selectedRunId = null;
+let selectedPromptId = null;
+let promptEditorMode = "edit";
 let selectedSetupProviderId = null;
 let providerDiagnostics = {};
 let providerModelOptions = {};
@@ -377,6 +395,7 @@ function loadState() {
       ...structuredClone(defaultState),
       ...saved,
       settings: { ...defaultState.settings, ...(saved.settings || {}) },
+      filters: { ...defaultState.filters, ...(saved.filters || {}) },
       prompts: saved.prompts?.length ? saved.prompts : promptSeeds,
       workflows: saved.workflows?.length ? saved.workflows : workflowSeeds,
       activity: saved.activity?.length ? saved.activity : activitySeeds,
@@ -621,7 +640,8 @@ function renderMetrics() {
 }
 
 function renderRuns() {
-  const runs = state.runs.slice(0, 6);
+  renderRunFilters();
+  const runs = getFilteredRuns().slice(0, 12);
   $("#runList").innerHTML = runs.length
     ? runs
         .map(
@@ -638,7 +658,13 @@ function renderRuns() {
               ${run.output ? `<p class="run-output">${escapeHtml(run.output)}</p>` : ""}
               ${
                 run.output
-                  ? `<div class="run-actions"><button class="subtle-button" type="button" data-run-open="${run.id}">Ergebnis öffnen</button></div>`
+                  ? `
+                    <div class="run-actions">
+                      <button class="subtle-button" type="button" data-run-open="${run.id}">Öffnen</button>
+                      <button class="subtle-button" type="button" data-run-repeat="${run.id}">Wiederholen</button>
+                      <button class="subtle-button" type="button" data-run-save-prompt="${run.id}">Als Vorlage</button>
+                    </div>
+                  `
                   : ""
               }
             </div>
@@ -646,6 +672,37 @@ function renderRuns() {
         )
         .join("")
     : `<div class="empty-state">Noch keine Auftraege in der Queue.</div>`;
+}
+
+function renderRunFilters() {
+  const toolOptions = uniqueOptions(state.runs.map((run) => run.toolLabel || run.toolId));
+  const providerOptions = uniqueOptions(state.runs.map((run) => formatProvider(run.provider)));
+  $("#runSearch").value = state.filters.runSearch || "";
+  $("#runToolFilter").innerHTML = [
+    `<option value="">Alle Tools</option>`,
+    ...toolOptions.map((tool) => `<option value="${escapeHtml(tool)}">${escapeHtml(tool)}</option>`),
+  ].join("");
+  $("#runToolFilter").value = state.filters.runTool || "";
+  $("#runProviderFilter").innerHTML = [
+    `<option value="">Alle Provider</option>`,
+    ...providerOptions.map((provider) => `<option value="${escapeHtml(provider)}">${escapeHtml(provider)}</option>`),
+  ].join("");
+  $("#runProviderFilter").value = state.filters.runProvider || "";
+}
+
+function getFilteredRuns() {
+  const search = (state.filters.runSearch || "").toLowerCase();
+  const tool = state.filters.runTool || "";
+  const provider = state.filters.runProvider || "";
+  return state.runs.filter((run) => {
+    const haystack = [run.title, run.prompt, run.output, run.toolLabel, run.model]
+      .join(" ")
+      .toLowerCase();
+    const matchesSearch = !search || haystack.includes(search);
+    const matchesTool = !tool || (run.toolLabel || run.toolId) === tool;
+    const matchesProvider = !provider || formatProvider(run.provider) === provider;
+    return matchesSearch && matchesTool && matchesProvider;
+  });
 }
 
 function renderAgents() {
@@ -888,22 +945,67 @@ function getSelectedWorkflow() {
 }
 
 function renderPrompts() {
-  $("#promptList").innerHTML = state.prompts.length
-    ? state.prompts
-        .slice(0, 6)
+  renderPromptFilters();
+  if (
+    promptEditorMode !== "new" &&
+    (!selectedPromptId || !state.prompts.some((prompt) => prompt.id === selectedPromptId))
+  ) {
+    selectedPromptId = getFilteredPrompts()[0]?.id || state.prompts[0]?.id || null;
+  }
+  const prompts = getFilteredPrompts().slice(0, 10);
+  $("#promptList").innerHTML = prompts.length
+    ? prompts
         .map(
           (prompt) => `
-            <div class="prompt-row" data-prompt="${prompt.id}">
+            <div class="prompt-row ${selectedPromptId === prompt.id ? "is-selected" : ""}" data-prompt-select="${prompt.id}">
               <div class="prompt-title">
-                <strong>${escapeHtml(prompt.title)}</strong>
-                <span>${escapeHtml(prompt.text)}</span>
+                <strong>${prompt.favorite ? "★ " : ""}${escapeHtml(prompt.title)}</strong>
+                <span>${escapeHtml(getPromptCategory(prompt))} · ${escapeHtml(prompt.text)}</span>
               </div>
-              ${icon(icons.copy)}
+              <button class="subtle-button" type="button" data-prompt-load="${prompt.id}">Laden</button>
             </div>
           `,
         )
         .join("")
     : `<div class="empty-state">Noch keine Vorlagen gespeichert.</div>`;
+  renderPromptEditor();
+}
+
+function renderPromptFilters() {
+  const categories = uniqueOptions(state.prompts.map(getPromptCategory));
+  $("#promptSearch").value = state.filters.promptSearch || "";
+  $("#promptCategoryFilter").innerHTML = [
+    `<option value="">Alle Kategorien</option>`,
+    ...categories.map((category) => `<option value="${escapeHtml(category)}">${escapeHtml(category)}</option>`),
+  ].join("");
+  $("#promptCategoryFilter").value = state.filters.promptCategory || "";
+}
+
+function renderPromptEditor() {
+  if (promptEditorMode === "new") return;
+  const prompt = state.prompts.find((item) => item.id === selectedPromptId);
+  $("#promptEditorTitle").value = prompt?.title || "";
+  $("#promptEditorCategory").value = prompt ? getPromptCategory(prompt) : "";
+  $("#promptEditorTags").value = (prompt?.tags || []).join(", ");
+  $("#promptEditorText").value = prompt?.text || "";
+  $("#promptEditorFavorite").checked = Boolean(prompt?.favorite);
+}
+
+function getFilteredPrompts() {
+  const search = (state.filters.promptSearch || "").toLowerCase();
+  const category = state.filters.promptCategory || "";
+  return state.prompts.filter((prompt) => {
+    const haystack = [prompt.title, prompt.text, getPromptCategory(prompt), ...(prompt.tags || [])]
+      .join(" ")
+      .toLowerCase();
+    const matchesSearch = !search || haystack.includes(search);
+    const matchesCategory = !category || getPromptCategory(prompt) === category;
+    return matchesSearch && matchesCategory;
+  });
+}
+
+function getPromptCategory(prompt) {
+  return prompt?.category || prompt?.tags?.[0] || "Allgemein";
 }
 
 function renderActivity() {
@@ -1145,11 +1247,17 @@ async function savePrompt() {
     return;
   }
   const title = text.slice(0, 42).replace(/\s+/g, " ");
+  const tool = getTool();
   if (canUseBackend()) {
     try {
       await apiRequest("/api/prompts", {
         method: "POST",
-        body: JSON.stringify({ title, text }),
+        body: JSON.stringify({
+          title,
+          text,
+          category: tool.label,
+          tags: [tool.id, state.mode].filter(Boolean),
+        }),
       });
       await hydrateFromBackend();
       toast("Vorlage im Backend gespeichert.");
@@ -1162,11 +1270,142 @@ async function savePrompt() {
     id: uid(),
     title,
     text,
+    category: tool.label,
+    tags: [tool.id, state.mode].filter(Boolean),
+    favorite: false,
   });
   addActivity("Vorlage gespeichert", title, "#75d66b");
   persist();
   render();
   toast("Vorlage gespeichert.");
+}
+
+function newPromptVaultEntry() {
+  promptEditorMode = "new";
+  selectedPromptId = null;
+  $("#promptEditorTitle").value = "";
+  $("#promptEditorCategory").value = "";
+  $("#promptEditorTags").value = "";
+  $("#promptEditorText").value = "";
+  $("#promptEditorFavorite").checked = false;
+  $$(".prompt-row.is-selected").forEach((row) => row.classList.remove("is-selected"));
+  $("#promptEditorText").focus();
+}
+
+function readPromptEditorPayload() {
+  const tags = parseTags($("#promptEditorTags").value);
+  return {
+    title: $("#promptEditorTitle").value.trim() || $("#promptEditorText").value.trim().slice(0, 42) || "Neue Vorlage",
+    category: $("#promptEditorCategory").value.trim() || tags[0] || "Allgemein",
+    tags,
+    text: $("#promptEditorText").value.trim(),
+    favorite: $("#promptEditorFavorite").checked,
+  };
+}
+
+async function savePromptVault() {
+  const payload = readPromptEditorPayload();
+  if (!payload.text) {
+    toast("Prompt-Text fehlt.");
+    $("#promptEditorText").focus();
+    return;
+  }
+
+  if (canUseBackend()) {
+    try {
+      const path = selectedPromptId
+        ? `/api/prompts/${encodeURIComponent(selectedPromptId)}`
+        : "/api/prompts";
+      const method = selectedPromptId ? "PATCH" : "POST";
+      const saved = await apiRequest(path, {
+        method,
+        body: JSON.stringify(payload),
+      });
+      selectedPromptId = saved.id;
+      promptEditorMode = "edit";
+      await hydrateFromBackend();
+      toast("Vorlage gespeichert.");
+      return;
+    } catch (error) {
+      toast(`Backend-Fallback: ${error.message}`);
+    }
+  }
+
+  if (selectedPromptId) {
+    state.prompts = state.prompts.map((prompt) =>
+      prompt.id === selectedPromptId ? { ...prompt, ...payload } : prompt,
+    );
+  } else {
+    const prompt = { id: uid(), ...payload, createdAt: new Date().toISOString() };
+    selectedPromptId = prompt.id;
+    state.prompts.unshift(prompt);
+  }
+  promptEditorMode = "edit";
+  persist();
+  renderPrompts();
+  toast("Vorlage gespeichert.");
+}
+
+async function deleteSelectedPrompt() {
+  if (!selectedPromptId) {
+    toast("Keine Vorlage ausgewählt.");
+    return;
+  }
+  if (canUseBackend()) {
+    try {
+      await apiRequest(`/api/prompts/${encodeURIComponent(selectedPromptId)}`, { method: "DELETE" });
+      selectedPromptId = null;
+      promptEditorMode = "edit";
+      await hydrateFromBackend();
+      toast("Vorlage gelöscht.");
+      return;
+    } catch (error) {
+      toast(`Backend-Fallback: ${error.message}`);
+    }
+  }
+  state.prompts = state.prompts.filter((prompt) => prompt.id !== selectedPromptId);
+  selectedPromptId = null;
+  promptEditorMode = "edit";
+  persist();
+  renderPrompts();
+  toast("Vorlage gelöscht.");
+}
+
+function selectPromptVault(promptId) {
+  promptEditorMode = "edit";
+  selectedPromptId = promptId;
+  renderPrompts();
+}
+
+function getSelectedPrompt() {
+  return state.prompts.find((prompt) => prompt.id === selectedPromptId) || null;
+}
+
+function loadSelectedPromptToCommand() {
+  const prompt = getSelectedPrompt();
+  if (!prompt) return;
+  $("#commandInput").value = prompt.text;
+  $(".command-center").scrollIntoView({ behavior: "smooth", block: "center" });
+  $("#commandInput").focus();
+  toast("Prompt in Chat geladen.");
+}
+
+function sendSelectedPromptToAgent() {
+  const prompt = getSelectedPrompt();
+  if (!prompt) return;
+  $("#agentPrompt").value = prompt.text;
+  $("#agentStudioPanel").scrollIntoView({ behavior: "smooth", block: "center" });
+  $("#agentPrompt").focus();
+  toast("Prompt an Agent Studio gesendet.");
+}
+
+function sendSelectedPromptToWorkflow() {
+  const prompt = getSelectedPrompt();
+  if (!prompt) return;
+  $("#workflowPayload").value = JSON.stringify({ prompt: prompt.text, template: prompt.title }, null, 2);
+  renderWorkflowPayloadPreview();
+  $("#workflowRunnerPanel").scrollIntoView({ behavior: "smooth", block: "center" });
+  toast("Prompt an Workflow Runner gesendet.");
 }
 
 async function copyPrompt() {
@@ -1313,6 +1552,74 @@ async function runViaBackend(run, prompt) {
   persist();
   await hydrateFromBackend();
   render();
+}
+
+async function repeatRun(runId) {
+  const run = state.runs.find((item) => item.id === runId);
+  if (!run?.prompt) {
+    toast("Dieser Auftrag hat keinen gespeicherten Prompt.");
+    return;
+  }
+
+  if (run.mode === "agent" && run.agentId) {
+    state.selectedAgentId = run.agentId;
+    renderAgentStudio();
+    $("#agentPrompt").value = run.prompt;
+    await runSelectedAgent();
+    return;
+  }
+
+  if (run.mode === "workflow" && String(run.toolId || "").startsWith("workflow-")) {
+    state.selectedWorkflowId = String(run.toolId).replace(/^workflow-/, "");
+    renderWorkflowRunner();
+    $("#workflowPayload").value = run.prompt;
+    await runSelectedWorkflow();
+    return;
+  }
+
+  if (allTools().some((tool) => tool.id === run.toolId)) {
+    state.selectedTool = run.toolId;
+    updateActiveToolChip();
+  }
+  $("#commandInput").value = run.prompt;
+  await runCommand();
+}
+
+async function saveRunAsPrompt(runId) {
+  const run = state.runs.find((item) => item.id === runId);
+  if (!run?.prompt) {
+    toast("Dieser Auftrag hat keinen Prompt.");
+    return;
+  }
+  const payload = {
+    title: run.title || run.prompt.slice(0, 42),
+    text: run.prompt,
+    category: "Run History",
+    tags: [run.mode, run.toolLabel, formatProvider(run.provider)].filter(Boolean),
+    favorite: false,
+  };
+  if (canUseBackend()) {
+    try {
+      const prompt = await apiRequest("/api/prompts", {
+        method: "POST",
+        body: JSON.stringify(payload),
+      });
+      selectedPromptId = prompt.id;
+      promptEditorMode = "edit";
+      await hydrateFromBackend();
+      toast("Run als Vorlage gespeichert.");
+      return;
+    } catch (error) {
+      toast(`Backend-Fallback: ${error.message}`);
+    }
+  }
+  const prompt = { id: uid(), ...payload, createdAt: new Date().toISOString() };
+  selectedPromptId = prompt.id;
+  promptEditorMode = "edit";
+  state.prompts.unshift(prompt);
+  persist();
+  renderPrompts();
+  toast("Run als Vorlage gespeichert.");
 }
 
 async function readResponseError(response) {
@@ -2407,6 +2714,20 @@ function parseAgentTools(value) {
     .slice(0, 12);
 }
 
+function parseTags(value) {
+  return String(value || "")
+    .split(/[,;\n]/)
+    .map((tag) => tag.trim())
+    .filter(Boolean)
+    .slice(0, 8);
+}
+
+function uniqueOptions(values) {
+  return Array.from(new Set(values.map((value) => String(value || "").trim()).filter(Boolean))).sort((a, b) =>
+    a.localeCompare(b, "de"),
+  );
+}
+
 function escapeHtml(value) {
   return String(value)
     .replaceAll("&", "&amp;")
@@ -2487,6 +2808,31 @@ function bindEvents() {
       return;
     }
 
+    const runRepeat = event.target.closest("[data-run-repeat]");
+    if (runRepeat) {
+      repeatRun(runRepeat.dataset.runRepeat);
+      return;
+    }
+
+    const runSavePrompt = event.target.closest("[data-run-save-prompt]");
+    if (runSavePrompt) {
+      saveRunAsPrompt(runSavePrompt.dataset.runSavePrompt);
+      return;
+    }
+
+    const promptLoad = event.target.closest("[data-prompt-load]");
+    if (promptLoad) {
+      selectPromptVault(promptLoad.dataset.promptLoad);
+      loadSelectedPromptToCommand();
+      return;
+    }
+
+    const promptSelect = event.target.closest("[data-prompt-select]");
+    if (promptSelect) {
+      selectPromptVault(promptSelect.dataset.promptSelect);
+      return;
+    }
+
     const provider = event.target.closest("[data-provider-select]");
     if (provider) {
       selectedSetupProviderId = provider.dataset.providerSelect;
@@ -2525,6 +2871,37 @@ function bindEvents() {
   $("#workflowOwner").addEventListener("input", renderWorkflowPayloadPreview);
   $("#newWorkflow").addEventListener("click", addWorkflow);
   $("#seedPrompts").addEventListener("click", seedPrompts);
+  $("#newPromptVault").addEventListener("click", newPromptVaultEntry);
+  $("#savePromptVault").addEventListener("click", savePromptVault);
+  $("#deletePromptVault").addEventListener("click", deleteSelectedPrompt);
+  $("#loadPromptToCommand").addEventListener("click", loadSelectedPromptToCommand);
+  $("#sendPromptToAgent").addEventListener("click", sendSelectedPromptToAgent);
+  $("#sendPromptToWorkflow").addEventListener("click", sendSelectedPromptToWorkflow);
+  $("#runSearch").addEventListener("input", (event) => {
+    state.filters.runSearch = event.target.value;
+    persist();
+    renderRuns();
+  });
+  $("#runToolFilter").addEventListener("change", (event) => {
+    state.filters.runTool = event.target.value;
+    persist();
+    renderRuns();
+  });
+  $("#runProviderFilter").addEventListener("change", (event) => {
+    state.filters.runProvider = event.target.value;
+    persist();
+    renderRuns();
+  });
+  $("#promptSearch").addEventListener("input", (event) => {
+    state.filters.promptSearch = event.target.value;
+    persist();
+    renderPrompts();
+  });
+  $("#promptCategoryFilter").addEventListener("change", (event) => {
+    state.filters.promptCategory = event.target.value;
+    persist();
+    renderPrompts();
+  });
   $("#testApi").addEventListener("click", runApiTest);
   $("#runDemoCommand").addEventListener("click", runDemoCommand);
   $("#exportData").addEventListener("click", exportDashboardData);

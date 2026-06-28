@@ -161,10 +161,17 @@
           <article class="panel panel-wide" id="runsPanel">
             <div class="panel-heading">
               <div>
-                <p class="panel-kicker">Live Queue</p>
-                <h2>Aufträge</h2>
+                <p class="panel-kicker">Run History</p>
+                <h2>Aufträge & Ergebnisse</h2>
               </div>
-              <button class="subtle-button" id="clearRuns" type="button">Bereinigen</button>
+              <div class="panel-actions">
+                <button class="subtle-button" id="clearRuns" type="button">Bereinigen</button>
+              </div>
+            </div>
+            <div class="run-filter-bar">
+              <input id="runSearch" type="search" placeholder="Runs durchsuchen" />
+              <select id="runToolFilter"></select>
+              <select id="runProviderFilter"></select>
             </div>
             <div class="run-list" id="runList"></div>
           </article>
@@ -315,9 +322,50 @@
                 <p class="panel-kicker">Bibliothek</p>
                 <h2>Prompt Vault</h2>
               </div>
-              <button class="subtle-button" id="seedPrompts" type="button">Beispiele</button>
+              <div class="panel-actions">
+                <button class="subtle-button" id="newPromptVault" type="button">Neu</button>
+                <button class="subtle-button" id="seedPrompts" type="button">Beispiele</button>
+              </div>
+            </div>
+            <div class="prompt-filter-bar">
+              <input id="promptSearch" type="search" placeholder="Prompts suchen" />
+              <select id="promptCategoryFilter"></select>
             </div>
             <div class="prompt-list" id="promptList"></div>
+            <div class="prompt-editor">
+              <div class="form-grid-two">
+                <label>
+                  Titel
+                  <input id="promptEditorTitle" type="text" placeholder="Automation Blueprint" />
+                </label>
+                <label>
+                  Kategorie
+                  <input id="promptEditorCategory" type="text" placeholder="Automation" />
+                </label>
+              </div>
+              <label>
+                Tags
+                <input id="promptEditorTags" type="text" placeholder="research, content, code" />
+              </label>
+              <label>
+                Prompt
+                <textarea id="promptEditorText" rows="6" placeholder="Speichere hier wiederverwendbare Prompts."></textarea>
+              </label>
+              <label class="check-label">
+                <input id="promptEditorFavorite" type="checkbox" />
+                <span>Favorit</span>
+              </label>
+              <div class="prompt-editor-actions">
+                <button class="primary-button" id="savePromptVault" type="button">
+                  <svg><use href="#icon-check"></use></svg>
+                  Speichern
+                </button>
+                <button class="subtle-button" id="loadPromptToCommand" type="button">In Chat</button>
+                <button class="subtle-button" id="sendPromptToAgent" type="button">An Agent</button>
+                <button class="subtle-button" id="sendPromptToWorkflow" type="button">An Workflow</button>
+                <button class="subtle-button" id="deletePromptVault" type="button">Löschen</button>
+              </div>
+            </div>
           </article>
 
           <article class="panel panel-wide">

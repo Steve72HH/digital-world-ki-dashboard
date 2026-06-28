@@ -106,7 +106,9 @@ function createStore(options = {}) {
           id: uid("prompt"),
           title: clean(payload.title || payload.text || "Neue Vorlage").slice(0, 80),
           text: clean(payload.text || ""),
+          category: clean(payload.category || payload.tags?.[0] || "Allgemein"),
           tags: Array.isArray(payload.tags) ? payload.tags.slice(0, 8).map(clean) : [],
+          favorite: Boolean(payload.favorite),
           createdAt: new Date().toISOString(),
         };
         if (!prompt.text) {
@@ -114,6 +116,20 @@ function createStore(options = {}) {
         }
         data.prompts.unshift(prompt);
         addActivity(data, "Vorlage gespeichert", prompt.title, "#75d66b");
+        return prompt;
+      });
+    },
+    async updatePrompt(id, patch) {
+      return update((data) => {
+        const prompt = data.prompts.find((item) => item.id === id);
+        if (!prompt) throw createHttpError(404, "Prompt not found");
+        if ("title" in patch) prompt.title = clean(patch.title || prompt.title).slice(0, 80);
+        if ("text" in patch) prompt.text = clean(patch.text);
+        if ("category" in patch) prompt.category = clean(patch.category || "Allgemein");
+        if ("tags" in patch) prompt.tags = Array.isArray(patch.tags) ? patch.tags.slice(0, 8).map(clean).filter(Boolean) : [];
+        if ("favorite" in patch) prompt.favorite = Boolean(patch.favorite);
+        if (!prompt.text) throw createHttpError(400, "Prompt text is required");
+        addActivity(data, "Vorlage aktualisiert", prompt.title, "#75d66b");
         return prompt;
       });
     },
@@ -313,12 +329,25 @@ function normalizeData(data) {
     },
     agents: normalizeAgents(data.agents, seed.agents),
     workflows: normalizeWorkflows(data.workflows, seed.workflows),
-    prompts: Array.isArray(data.prompts) ? data.prompts : seed.prompts,
+    prompts: normalizePrompts(data.prompts, seed.prompts),
     runs: Array.isArray(data.runs) ? data.runs : [],
     activity: Array.isArray(data.activity) ? data.activity : seed.activity,
     aiProviders: normalizeAiProviders(data.aiProviders || seed.aiProviders),
     connectors: normalizeConnectors(data.connectors, seed.connectors),
   };
+}
+
+function normalizePrompts(input, seedPrompts) {
+  const incoming = Array.isArray(input) ? input : seedPrompts;
+  return incoming.map((prompt) => ({
+    id: clean(prompt.id || uid("prompt")),
+    title: clean(prompt.title || prompt.text || "Prompt").slice(0, 80),
+    text: clean(prompt.text || ""),
+    category: clean(prompt.category || prompt.tags?.[0] || "Allgemein"),
+    tags: Array.isArray(prompt.tags) ? prompt.tags.map(clean).filter(Boolean).slice(0, 8) : [],
+    favorite: Boolean(prompt.favorite),
+    createdAt: prompt.createdAt || new Date().toISOString(),
+  }));
 }
 
 function normalizeAgents(input, seedAgents) {
